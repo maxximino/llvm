@@ -41,6 +41,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/MC/SubtargetFeature.h"
+#include "llvm/NoCryptoFA/All.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/LinkAllVMCore.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -571,6 +572,9 @@ int main(int argc, char **argv) {
   // Initialize passes
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
+  initializePropagaMetadatiPass(Registry);
+  initializeDFGPrinterPass(Registry);
+  initializeMaxTestPassPass(Registry);
   initializeScalarOpts(Registry);
   initializeVectorization(Registry);
   initializeIPO(Registry);

@@ -1,4 +1,4 @@
-##===- tools/opt/Makefile ----------------------------------*- Makefile -*-===##
+##===- lib/Analysis/Makefile -------------------------------*- Makefile -*-===##
 #
 #                     The LLVM Compiler Infrastructure
 #
@@ -7,8 +7,10 @@
 #
 ##===----------------------------------------------------------------------===##
 
-LEVEL := ../..
-TOOLNAME := opt
-LINK_COMPONENTS := bitreader bitwriter asmparser instrumentation scalaropts ipo vectorize all-targets nocryptofa
+LEVEL = ../..
+LIBRARYNAME = LLVMNoCryptoFA 
+DIRS = 
+BUILD_ARCHIVE = 1
 
 include $(LEVEL)/Makefile.common
+

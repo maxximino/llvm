@@ -1,4 +1,4 @@
-;===- ./tools/opt/LLVMBuild.txt --------------------------------*- Conf -*--===;
+;===- ./lib/Analysis/LLVMBuild.txt -----------------------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -15,8 +15,11 @@
 ;
 ;===------------------------------------------------------------------------===;
 
+[common]
+subdirectories = 
+
 [component_0]
-type = Tool
-name = opt
-parent = Tools
-required_libraries = AsmParser BitReader BitWriter IPO Instrumentation Scalar NoCryptoFA all-targets
+type = Library
+name = NoCryptoFA 
+parent = Libraries
+required_libraries = Core Support Target
