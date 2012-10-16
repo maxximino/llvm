@@ -26,7 +26,10 @@
 #include "llvm/Support/MathExtras.h"
 #include <algorithm>
 #include <cmath>
+#include <iostream>
+#include <iomanip>
 using namespace llvm;
+bool askNext = false; //Variabile globale, lo so :(
 
 STATISTIC(NumDynamicInsts, "Number of dynamic instructions executed");
 
@@ -38,6 +41,23 @@ static cl::opt<bool> PrintVolatile("interpreter-print-volatile", cl::Hidden,
 //===----------------------------------------------------------------------===//
 
 static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
+  if(askNext){
+         askNext=false;
+         std::cerr << "Trap. Next instruction :" ;
+         llvm::raw_fd_ostream os(2,false);
+         V->print(os);
+         std::cerr << std::endl << "Is about to get value " ;
+         Val.IntVal.print(os,true);
+         std::cerr << std::endl << "Should I fault it?" << std::endl;
+         bool fault;
+         std::cin >> std::boolalpha >> fault;
+         if(fault){
+                 uint64_t newval;
+                 std::cerr << std::endl << "Type it:";
+                 std::cin>>newval;
+                 Val.IntVal=APInt(Val.IntVal.getBitWidth(),newval);
+         }
+  }
   SF.Values[V] = Val;
 }
 
@@ -861,6 +881,9 @@ void Interpreter::visitCallSite(CallSite CS) {
       return;
     case Intrinsic::vacopy:   // va_copy: dest = src
       SetValue(CS.getInstruction(), getOperandValue(*CS.arg_begin(), SF), SF);
+      return;
+    case Intrinsic::trap:
+       askNext=true;
       return;
     default:
       // If it is an unknown intrinsic function, use the intrinsic lowering
