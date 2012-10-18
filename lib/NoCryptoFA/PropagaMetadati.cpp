@@ -28,7 +28,6 @@ using namespace std;
 bool PropagaMetadati::runOnFunction(llvm::Function& F)
 {
 	llvm::raw_fd_ostream fd(2, false);
-	llvm::Instruction* tbd = NULL;
 	llvm::Instruction* latest_status = NULL;
 	TaggedData td = getAnalysis<TaggedData>();
 	for(llvm::Function::iterator BB = F.begin(),
@@ -36,22 +35,15 @@ bool PropagaMetadati::runOnFunction(llvm::Function& F)
 	    BB != FE;
 	    ++BB) {
 		for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
+            llvm::NoCryptoFA::InstructionMetadata* md = td.getMD(i);
 			if(td.isMarkedAsStatus(i)) {
 				latest_status = i;
 			}
-			if(tbd != NULL && latest_status != tbd) {
-				tbd->eraseFromParent();
-				tbd = NULL;
-			}
-			if(td.isMarkedAsKey(i.getNodePtrUnchecked())) {
-				MDString* rec = MDString::get(BB->getContext(), "chiave");
+            if(md->isAKeyOperation && (md->keyQty==0)) {
+                MDString* rec = MDString::get(BB->getContext(), "OPchiave");
 				i->setMetadata("MetaMark", MDNode::get(BB->getContext(), ArrayRef<Value*>(rec)));
 				
 			}
-		}
-		if(tbd != NULL) {
-			tbd->eraseFromParent();
-			tbd = NULL;
 		}
 	}
 	return true;
