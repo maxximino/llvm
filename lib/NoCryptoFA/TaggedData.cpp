@@ -4,9 +4,11 @@
 #include <llvm/Metadata.h>
 #include <llvm/Type.h>
 #include <llvm/Instructions.h>
+#include <llvm/Analysis/Dominators.h>
+#include <set>
 using namespace llvm;
 
-char TaggedData::ID = 4;
+char TaggedData::ID = 212;
 	TaggedData* llvm::createTaggedDataPass(){
 		return new TaggedData();
 	}
@@ -17,6 +19,9 @@ bool TaggedData::isMarkedAsStatus(Instruction* ptr)
 }
 bool TaggedData::runOnFunction(llvm::Function& Fun)
 {
+    latestPos=0;
+    instr_bs.clear();
+    hasmd=false;
 	for(llvm::Function::iterator FI = Fun.begin(),
 	    FE = Fun.end();
 	    FI != FE;
@@ -28,20 +33,40 @@ bool TaggedData::runOnFunction(llvm::Function& Fun)
             checkMeta(I.getNodePtrUnchecked());
 		}
 	}
-    for(llvm::Function::iterator FI = Fun.begin(),
-        FE = Fun.end();
-        FI != FE;
-        ++FI) {
-        for(llvm::BasicBlock::iterator I = FI->begin(),
-            E = FI->end();
-            I != E;
-            ++I) {
-            if(known[I.getNodePtrUnchecked()]->directKeyQty > 0){
-                calcPre(I.getNodePtrUnchecked());
+    if(hasmd){
+        markedfunctions.insert(&Fun);
+        for(llvm::Function::iterator FI = Fun.begin(),
+            FE = Fun.end();
+            FI != FE;
+            ++FI) {
+            for(llvm::BasicBlock::iterator I = FI->begin(),
+                E = FI->end();
+                I != E;
+                ++I) {
+                if(known[I]->isAKeyStart){
+                    calcAndSavePre(I);
+                }
+            }
+        }
+        for(llvm::Function::iterator FI = Fun.begin(),
+            FE = Fun.end();
+            FI != FE;
+            ++FI) {
+            for(llvm::BasicBlock::iterator I = FI->begin(),
+                E = FI->end();
+                I != E;
+                ++I) {
+                if(known[I]->isAKeyOperation){
+                    known[I]->post_sum.reset();
+                    known[I]->post_min.set();
+                    auto ret = calcPost(I,I,known[I]->post_sum,known[I]->post_min);
+                    known[I]->post_sum = ret.first;
+                    known[I]->post_min = ret.second;
+                }
             }
         }
     }
-	return false;
+    return true;
 }
 llvm::NoCryptoFA::InstructionMetadata* TaggedData::getMD(llvm::Instruction* ptr){
     return known[ptr];
@@ -58,77 +83,156 @@ std::string readMetaMark(Instruction* ptr)
 	return "";
 }
 #include <iostream>
-void TaggedData::infect(llvm::Instruction* ptr,bool realkey,int directQty){
+bitset<MAX_KEYBITS> TaggedData::getOwnBitset(llvm::Instruction* ptr){
+    if(instr_bs.find(ptr) != instr_bs.end()){
+        return instr_bs[ptr];
+    }
+    Type* t = ptr->getType();
+    while(t->isPointerTy()){
+        t=t->getPointerElementType();
+    }
+       int keyQty=t->getScalarSizeInBits(); //TODO: Gestire array e cose diverse da valori scalari e puntatori.
+       bitset<MAX_KEYBITS> mybs;
+       mybs.reset();
+       for(int i = latestPos; i <= (latestPos+keyQty); i++){
+           mybs[i]=1;
+       }
+    latestPos +=keyQty;
+    cerr << "kq: "<<keyQty<<  " lp " << latestPos << "--"<< mybs.to_string() << endl;
+
+    instr_bs[ptr]=mybs;
+    return mybs;
+
+}
+bool TaggedData::antenato(llvm::Instruction* ptr, llvm::Instruction* ricercato){
+    static std::set<llvm::Instruction*> stack;
+    return false;
+    if(!known[ptr]->isAKeyOperation) return false;
+    if(stack.count(ptr) >0 ) return false; //Devo rompere la ricorsione nei loop
+    stack.insert(ptr);
+
+    for(User::const_op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
+        if(Instruction *_it = dyn_cast<Instruction>(*it)) {
+            if(_it==ricercato){
+                stack.erase(stack.find(ptr));
+                return true;
+            }
+            if(antenato(_it,ricercato)){
+                stack.erase(stack.find(ptr));
+                return true;}
+        }
+    }
+        stack.erase(stack.find(ptr));
+    return false;
+}
+pair<bitset<MAX_KEYBITS>,bitset<MAX_KEYBITS> > TaggedData::calcPost(Instruction *ptr,Instruction*faulty,bitset<MAX_KEYBITS> sum,bitset<MAX_KEYBITS> min){
+    static std::set<llvm::Instruction*> stack;
+    if(!known[ptr]->isAKeyOperation) return make_pair(sum,min);
+    if(stack.count(ptr) >0 ) return make_pair(sum,min); //Devo rompere la ricorsione nei loop
+    stack.insert(ptr);
+    raw_fd_ostream rerr(2,false);
+    if(ptr==faulty){
+        sum.reset();
+    }else{
+        DominatorTree& dt = getAnalysis<DominatorTree>();
+        for(User::const_op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
+            if(Instruction *_it = dyn_cast<Instruction>(*it)) {
+                if(_it!=faulty){
+                    if(!antenato(_it,faulty)){
+                        sum |= known[_it]->pre;
+                 //       rerr << *_it << " non antenato " << *faulty << "\n";
+                    }
+                    else{
+               //         rerr << *_it << " antenato " << *faulty << "\n";
+                    }
+                    sum |= known[_it]->own;
+
+
+                }
+            }
+        }
+    }
+
+    if(ptr->use_empty()){
+        min=sum;
+    }
+    else{
+        bitset<MAX_KEYBITS> orig_sum = sum;
+        min.set();
+        for(llvm::Instruction::use_iterator it = ptr->use_begin(); it!= ptr->use_end(); ++it) {
+            if(Instruction *_it = dyn_cast<Instruction>(*it)) {
+                auto p = calcPost(_it,faulty,orig_sum,min);
+                sum |= p.first;
+                if(p.second.count() < min.count()){
+                    min = p.second;
+                }
+             }
+        }
+    }
+    stack.erase(stack.find(ptr));
+    return make_pair(sum,min);
+}
+void TaggedData::infect(llvm::Instruction* ptr){
     llvm::NoCryptoFA::InstructionMetadata* md;
+    hasmd=true;
     if(known.find(ptr)!=known.end()){
         md=known[ptr];
     }else{
         md = new llvm::NoCryptoFA::InstructionMetadata();
         known[ptr]=md;
     }
-    if(realkey){
-        Type* t = ptr->getType();
-        if(t->isPointerTy()){
-            md->keyQty=t->getPointerElementType()->getScalarSizeInBits();
-        }
-        else{
-            md->keyQty=t->getScalarSizeInBits(); //TODO: Gestire array e cose diverse da valori scalari.
-        }
-    }
-    md->directKeyQty = std::max(md->directKeyQty,directQty); //TODO: Dubbio sulla logica, sottostimo la vera quantita' ma non posso sommare.
-    if(isa<llvm::LoadInst>(ptr)){
-        md->keyQty=md->directKeyQty;
-        md->directKeyQty=0;
-    }
+
     if(!md->isAKeyOperation){
         md->isAKeyOperation = true;
         for(llvm::Instruction::use_iterator i = ptr->use_begin(); i!= ptr->use_end(); ++i) {
             if (Instruction *Inst = dyn_cast<Instruction>(*i)) {
-                infect(Inst,false,md->keyQty);
+                infect(Inst);
              }
         }
+          md->isAKeyStart=true;
+        for(User::const_op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
+        if(Instruction *_it = dyn_cast<Instruction>(*it)) {
+            if(known.find(_it) != known.end()){
+                if(known[_it]->isAKeyOperation){
+                    md->isAKeyStart=false;
+                    break;
+                }
+            }
+           }
+        }
+        if(md->isAKeyStart){  md->own = getOwnBitset(ptr); }
+
+
     }
 }
 
-void TaggedData::calcPost(llvm::Instruction* ptr){
-    //risalgo l'albero e calcolo i postKeyQty
-    llvm::NoCryptoFA::InstructionMetadata *md = known[ptr];
-    md->postKeyQty=0;
-    for(llvm::Instruction::use_iterator it = ptr->use_begin(); it!= ptr->use_end(); ++it) {
-        if(Instruction *_it = dyn_cast<Instruction>(*it)) {
-            md->postKeyQty += known[_it]->postKeyQty + known[_it]->directKeyQty;
-         }
-    }
+void TaggedData::calcAndSavePre(llvm::Instruction* ptr){
+    static std::set<llvm::Instruction*> stack;
+    if(stack.count(ptr) >0 ) return; //Devo rompere la ricorsione nei loop
+    stack.insert(ptr);
+    NoCryptoFA::InstructionMetadata *md = known[ptr];
+    if(md->preCalc){return;} //no!deve poterli rielaborare. Cerco bug.
+    md->pre.reset();
+    md->preCalc=true;
     for(User::const_op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
         if(Instruction *_it = dyn_cast<Instruction>(*it)) {
-            calcPost(_it);
-        }
-    }
-}
-void TaggedData::calcPre(llvm::Instruction* ptr){
-    //qui parto dai direct, scendo nell'albero e arrivato alla fine risalgo.
-    llvm::NoCryptoFA::InstructionMetadata *md = known[ptr];
-    md->preKeyQty=0;
-    for(User::const_op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
-        if(Instruction *_it = dyn_cast<Instruction>(*it)) {
-            md->preKeyQty += known[_it]->preKeyQty + known[_it]->directKeyQty;
+            md->pre |= known[_it]->pre;
+            md->pre |= known[_it]->own;
         }
     }
     for(llvm::Instruction::use_iterator it = ptr->use_begin(); it!= ptr->use_end(); ++it) {
         if(Instruction *_it = dyn_cast<Instruction>(*it)) {
-            calcPre(_it);
+            calcAndSavePre(_it);
          }
     }
-    if(ptr->use_begin() == ptr->use_end()){
-        calcPost(ptr);
-    }
+    stack.erase(stack.find(ptr));
 }
 void TaggedData::checkMeta(llvm::Instruction* ptr)
 {
 	if( !std::string("chiave").compare(readMetaMark(ptr))) {
-        infect(ptr,true);
+        infect(ptr);
     }else if( !std::string("OPchiave").compare(readMetaMark(ptr))) {
-        infect(ptr,false);
+        infect(ptr);
     }
     else if(known.find(ptr)==known.end()){
         llvm::NoCryptoFA::InstructionMetadata* md = new llvm::NoCryptoFA::InstructionMetadata();
@@ -146,7 +250,8 @@ bool TaggedData::isMarkedAsKey(llvm::Instruction* ptr)
 void TaggedData::getAnalysisUsage(llvm::AnalysisUsage& AU) const
 {
 	// This is an analysis, nothing is modified, so other analysis are preserved.
-	AU.setPreservesAll();
+    AU.addRequired<DominatorTree>();
+    AU.setPreservesAll();
 }
 
 using namespace llvm;

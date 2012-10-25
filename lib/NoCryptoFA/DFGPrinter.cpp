@@ -79,7 +79,7 @@ namespace llvm
 
 
 	
-	char DFGPrinter::ID = 2;
+    char DFGPrinter::ID = 22;
 
 }
 			void MyNodeType::addSubNode(MyNodeType* nuovo) {
@@ -110,7 +110,28 @@ namespace llvm
 void DFGPrinter::print(raw_ostream& OS, const Module* ) const
 {
 	GraphWriter<MyNodeType*> gw(OS, rootptr, true);
-	gw.writeGraph("gt");
+    gw.writeGraph("");
+}
+void replaceAll(std::string& str, const std::string& from, const std::string& to) {
+    if(from.empty())
+        return;
+    size_t start_pos = 0;
+    while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length(); // In case 'to' contains 'from', like replacing 'x' with 'yx'
+    }
+}
+string printbs(bitset<MAX_KEYBITS>& bs){
+    string in = bs.to_string();
+    in = string ( in.rbegin(), in.rend() );
+    in = string("|").append(in);
+    string::size_type last= in.find_last_not_of('0');
+    if(last != in.npos){
+        in=in.erase(last);
+    }
+    replaceAll(in,"00000000","z");
+    replaceAll(in,"11111111","U");
+    return in.append("|");
 }
 bool DFGPrinter::runOnModule(llvm::Module& M)
 {
@@ -119,6 +140,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
     multimap<Instruction*,MyNodeType*> future_edges;
 	for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
 		MyNodeType* me = new MyNodeType(F->getName());
+
 		rootptr->addChildren(me);
 		instrnodemap.clear();
         future_edges.clear();
@@ -126,19 +148,26 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 		    FE = F->end();
 		    BB != FE;
 		    ++BB) {
-			TaggedData td = getAnalysis<TaggedData>(*F);
+
+            TaggedData td = getAnalysis<TaggedData>(*F);
+            if(!td.hasmd) continue; //sopra non trova l'analysis. Boh!
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
                 if(isa<llvm::DbgInfoIntrinsic>(i)){continue;}
 				std::string outp;
 				llvm::raw_string_ostream os (outp);
 				os << *i << "\n";
                 llvm::NoCryptoFA::InstructionMetadata* md = td.getMD(i);
-                os << "<Own:" << md->keyQty << ",Direct:" << md->directKeyQty << ",Pre:" << md->preKeyQty << ",Post:" << md->postKeyQty << ">" << "\n";
+                if(md->isAKeyOperation){
+                    if(md->isAKeyStart){
+                        os << "KeyStart" << "\n";
+                    }
+                    os << "<Own:" << printbs(md->own) << ",Pre:" << printbs(md->pre) << ",Post_sum:" << printbs(md->post_sum) << ",Post_min:" << printbs(md->post_min) << ">" << "\n";
+                }
                 if(!i->getDebugLoc().isUnknown()){
                     os << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
                 }
 				cur = new MyNodeType(os.str());
-                instrnodemap.insert(std::make_pair<Instruction*, MyNodeType*>(i, cur));
+                instrnodemap.insert(std::make_pair(i, cur));
                 pair<multimap<Instruction*,MyNodeType*>::iterator,multimap<Instruction*,MyNodeType*>::iterator> range=future_edges.equal_range(i);
                 for(multimap<Instruction*,MyNodeType*>::iterator it = range.first; it!= range.second;++it){
                     cur->addChildren(it->second);
@@ -157,7 +186,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
                             added = true;
                             }
                             else{
-                                future_edges.insert(std::make_pair<Instruction*,MyNodeType*> (_it,cur));
+                                future_edges.insert(std::make_pair(_it,cur));
                                // added=true; // Rischio "isole" sconnesse, che non apparirebbero nel grafo.
                             }
                         }
@@ -172,7 +201,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
                             added = true;
                             }
                             else{
-                                future_edges.insert(std::make_pair<Instruction*,MyNodeType*> (_it,cur));
+                                future_edges.insert(std::make_pair(_it,cur));
                                // added=true; // Rischio "isole" sconnesse, che non apparirebbero nel grafo.
                             }
                         }
@@ -195,7 +224,7 @@ void DFGPrinter::getAnalysisUsage(llvm::AnalysisUsage& AU) const
 	// preserved analysis -- AU.setPreserved. However, this pass does no require
 	// any analysis and potentially invalidates all analysis. The default
 	// behaviour is to invalidate all analysis.
-	AU.addRequired<TaggedData>();
+    AU.addRequired<TaggedData>();
 }
 
 

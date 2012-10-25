@@ -266,6 +266,7 @@ ifneq ($(strip $(filter clean clean-local dist-clean,$(MAKECMDGOALS))),)
   IS_CLEANING_TARGET=1
 endif
 
+CXX.Flags     += -std=c++0x
 #--------------------------------------------------------------------
 # Variables derived from configuration we are building
 #--------------------------------------------------------------------
@@ -286,7 +287,7 @@ ifeq ($(ENABLE_OPTIMIZED),1)
   #ifeq ($(HOST_OS),Darwin)
   #  EXTRA_OPTIONS += -fstrict-aliasing -Wstrict-aliasing
   #endif
-  CXX.Flags += $(OPTIMIZE_OPTION) $(OmitFramePointer)
+  CXX.Flags += $(OPTIMIZE_OPTION) $(OmitFramePointer) 
   C.Flags   += $(OPTIMIZE_OPTION) $(OmitFramePointer)
   LD.Flags  += $(OPTIMIZE_OPTION)
   ifdef DEBUG_SYMBOLS

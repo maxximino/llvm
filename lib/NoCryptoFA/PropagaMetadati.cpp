@@ -39,11 +39,18 @@ bool PropagaMetadati::runOnFunction(llvm::Function& F)
 			if(td.isMarkedAsStatus(i)) {
 				latest_status = i;
 			}
-            if(md->isAKeyOperation && (md->keyQty==0)) {
+            if(md->isAKeyOperation && !md->isAKeyStart) {
                 MDString* rec = MDString::get(BB->getContext(), "OPchiave");
 				i->setMetadata("MetaMark", MDNode::get(BB->getContext(), ArrayRef<Value*>(rec)));
-				
 			}
+            if(md->isAKeyOperation  && isa<llvm::StoreInst>(i)) {
+                for(auto o = i->op_begin();o != i->op_end(); o++ ){
+                    MDString* rec = MDString::get(BB->getContext(), "OPchiave");
+                    if(isa<Instruction>(o)){
+                    (cast<llvm::Instruction>(o))->setMetadata("MetaMark", MDNode::get(BB->getContext(), ArrayRef<Value*>(rec)));
+                    }
+                }
+             }
 		}
 	}
 	return true;
