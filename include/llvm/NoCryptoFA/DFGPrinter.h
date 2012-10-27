@@ -13,7 +13,8 @@ namespace llvm{
 			std::vector<MyNodeType*> children;
 			std::vector<MyNodeType*> subnodes; //in sostituzione temporanea di un iteratore intelligente che visita tutti i sottonodi
 			std::vector<MyNodeType*> parents;
-			MyNodeType(std::string n): children(), subnodes(), parents() {
+            static MyNodeType* rootnode;
+            MyNodeType(std::string n): children(), subnodes(), parents() {
 				name = n;
 				key = false;
 			}
@@ -27,7 +28,7 @@ namespace llvm{
 	  {
 		  public:
 			  static char ID;
-			  DFGPrinter() : llvm::ModulePass(ID), instrnodemap() { rootptr = new MyNodeType("root");}
+              DFGPrinter() : llvm::ModulePass(ID), instrnodemap() { rootptr = new MyNodeType("root"); MyNodeType::rootnode = rootptr;}
 			  virtual ~DFGPrinter() { delete rootptr;}
 			  // This member function must implement the code of your pass.
 			  virtual bool runOnModule(llvm::Module& M);

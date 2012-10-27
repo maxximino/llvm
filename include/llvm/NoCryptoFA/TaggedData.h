@@ -9,6 +9,7 @@
 #define MAX_KEYBITS 4096
 using namespace std;
 using namespace llvm;
+
 namespace llvm
 {
 	void initializeTaggedDataPass(PassRegistry& Registry);
@@ -16,7 +17,6 @@ namespace llvm
 	  struct InstructionMetadata{
         bool isAKeyOperation;
         bool isAKeyStart;
-        bool preCalc;
         std::bitset<MAX_KEYBITS> pre;
         std::bitset<MAX_KEYBITS> own;
          std::bitset<MAX_KEYBITS> post_sum;
@@ -24,10 +24,42 @@ namespace llvm
          InstructionMetadata():pre(0),own(0),post_sum(0),post_min(0){
           isAKeyOperation=false;
           isAKeyStart = false;
-          preCalc=false;
+          post_sum.reset();
+          post_min.set();
 	    }
 	  };
-	      
+       struct KeyStartInfo{
+       public:
+           llvm::Value* ptr;
+           long index;
+           KeyStartInfo(llvm::Value* _ptr,long _idx){
+               ptr=_ptr;
+               index=_idx;
+           }
+           KeyStartInfo(llvm::Value* _ptr){
+               ptr=_ptr;
+               index=-1;
+           }
+           KeyStartInfo(){
+               index=-1;
+               ptr=NULL;
+           }
+           friend bool operator== (const KeyStartInfo&a,const KeyStartInfo& b);
+           friend bool operator< (const KeyStartInfo&a,const KeyStartInfo& b);
+       };
+       inline bool operator== (const NoCryptoFA::KeyStartInfo&a,const NoCryptoFA::KeyStartInfo& b){
+           return a.index==b.index && a.ptr==b.ptr;
+       }
+       inline bool operator< (const NoCryptoFA::KeyStartInfo&a,const NoCryptoFA::KeyStartInfo& b){
+           if(a.ptr != b.ptr){
+               return a.ptr < b.ptr;
+           }
+           else{
+               return a.index < b.index;
+           }
+       }
+
+
 	      
 	}
 	
@@ -49,21 +81,24 @@ namespace llvm
 			virtual const char* getPassName() const {
                                 return "TaggedData";
                         }
-                        bool hasmd;
+bool functionMarked(Function* ptr);
 
                 private:
                         // This is the information computed by the analysis.
                         std::map<llvm::Instruction*,llvm::NoCryptoFA::InstructionMetadata*> known;
                         std::map<llvm::Instruction*,std::bitset<MAX_KEYBITS> > instr_bs;
+                        std::map<NoCryptoFA::KeyStartInfo,std::bitset<MAX_KEYBITS> > GEPs;
                         std::set<Function*> markedfunctions;
                         bool antenato(llvm::Instruction* ptr, llvm::Instruction* ricercato);
                         int latestPos;
                         void checkMeta(llvm::Instruction* ptr);
                         void calcAndSavePre(llvm::Instruction* ptr);
-                        pair<bitset<MAX_KEYBITS>,bitset<MAX_KEYBITS> > calcPost(llvm::Instruction* ptr,Instruction*faulty,bitset<MAX_KEYBITS> sum,bitset<MAX_KEYBITS> min);
+                        void calcPost(llvm::Instruction* ptr);
                         bitset<MAX_KEYBITS> getOwnBitset(llvm::Instruction* ptr);
                         void infect(llvm::Instruction* ptr);
                         int  getKeyLen(llvm::Instruction* ptr);
+                        bool hasmd;
+
         };
 	TaggedData* createTaggedDataPass();
 

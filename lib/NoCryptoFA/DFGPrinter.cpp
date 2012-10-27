@@ -1,6 +1,7 @@
 #include <iostream>
 #include <map>
 #include <list>
+#include <sstream>
 #include "llvm/Constants.h"
 #include "llvm/Instructions.h"
 #include "llvm/Instruction.h"
@@ -31,11 +32,13 @@ bool exists_in_vector(std::vector<tipo>* v, tipo el)
 	}
 	return false;
 }
+MyNodeType* MyNodeType::rootnode = NULL;
 namespace llvm
 {
 
       	template<> struct GraphTraits<MyNodeType*> {
 		typedef MyNodeType NodeType;
+
 		typedef std::vector<MyNodeType*>::iterator nodes_iterator;
 		typedef std::vector<MyNodeType*>::iterator ChildIteratorType;
 		static NodeType* getEntryNode(MyNodeType* n) { return n; }
@@ -83,7 +86,7 @@ namespace llvm
 
 }
 			void MyNodeType::addSubNode(MyNodeType* nuovo) {
-                static multiset<pair<MyNodeType*,MyNodeType*> > stack;
+            /*    static multiset<pair<MyNodeType*,MyNodeType*> > stack;
                 if(stack.count(make_pair(this,nuovo)) >0 ) return; //Devo rompere la ricorsione nei loop
                 stack.insert(make_pair(this,nuovo));
 				if(!exists_in_vector(&subnodes, nuovo)) {
@@ -92,7 +95,8 @@ namespace llvm
 				for(std::vector<MyNodeType*>::iterator it = parents.begin(); it != parents.end(); ++it) {
 					(*it)->addSubNode(nuovo);
 				}
-                stack.erase(stack.find(make_pair(this,nuovo)));
+                stack.erase(stack.find(make_pair(this,nuovo)));*/
+                MyNodeType::rootnode->subnodes.push_back(nuovo);
 			}
 			void MyNodeType::addChildren(MyNodeType* nuovo) {
 				if(!exists_in_vector(&children, nuovo)) {
@@ -122,7 +126,7 @@ void replaceAll(std::string& str, const std::string& from, const std::string& to
     }
 }
 string printbs(bitset<MAX_KEYBITS>& bs){
-    string in = bs.to_string();
+    /*string in = bs.to_string();
     in = string ( in.rbegin(), in.rend() );
     in = string("|").append(in);
     string::size_type last= in.find_last_not_of('0');
@@ -131,7 +135,10 @@ string printbs(bitset<MAX_KEYBITS>& bs){
     }
     replaceAll(in,"00000000","z");
     replaceAll(in,"11111111","U");
-    return in.append("|");
+    return in.append("|");*/
+    stringstream ss("");
+    ss << bs.count();
+    return ss.str();
 }
 bool DFGPrinter::runOnModule(llvm::Module& M)
 {
@@ -148,9 +155,9 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 		    FE = F->end();
 		    BB != FE;
 		    ++BB) {
+            TaggedData& td = getAnalysis<TaggedData>(*F);
+            if(!td.functionMarked(&(*F))) continue;
 
-            TaggedData td = getAnalysis<TaggedData>(*F);
-            if(!td.hasmd) continue; //sopra non trova l'analysis. Boh!
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
                 if(isa<llvm::DbgInfoIntrinsic>(i)){continue;}
 				std::string outp;
