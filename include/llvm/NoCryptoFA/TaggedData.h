@@ -6,7 +6,7 @@
 #include <map>
 #include <set>
 #include <bitset>
-#define MAX_KEYBITS 4096
+#define MAX_KEYBITS 2048
 using namespace std;
 using namespace llvm;
 

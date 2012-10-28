@@ -106,8 +106,14 @@ bitset<MAX_KEYBITS> TaggedData::getOutBitset(llvm::Instruction* ptr){ // sarebbe
     }else if(isa<ReturnInst>(ptr)){
         ReturnInst* s = cast<ReturnInst>(ptr);
         op = s->getReturnValue();
-    }else{
-        cerr << "Istruzione senza usi che non è una return nè una store... Segfaultiamo per far notare l'importanza del problema.."<< endl;
+    }else if(isa<CallInst>(ptr)){
+        op = ptr;
+        cerr << "La chiave passa ad una CALL.... warn!\n";
+    }
+    else{
+        raw_fd_ostream rerr(2,false);
+        rerr << *ptr;
+        cerr << "Istruzione senza usi che non è una return nè una store nè una call... Segfaultiamo per far notare l'importanza del problema.."<< endl;
         int*ptr=0;
         *ptr=1;
     }
