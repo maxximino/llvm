@@ -66,17 +66,17 @@ namespace llvm
 		std::string getNodeAttributes(MyNodeType* Node,
 		                              const MyNodeType* Graph) {
 			if(Node->key) {
-                return "style=filled,color=cyan";
+                return "style=filled,color=\"#58faf4\"";
 			}
-			return "";
+            return "style=filled,color=\"#e0e0e0\"";
 		}
 		template<typename EdgeIter>
 		std::string getEdgeAttributes(const MyNodeType* Node, EdgeIter EI,
 		                              const MyNodeType* Graph) {
 			if(Node->key) {
-                return "color=cyan";
+                return "color=\"#58faf4\"";
 			}
-			return "";
+            return "color=\"#e0e0e0\"";
 		}
 	};
 
@@ -125,21 +125,28 @@ void replaceAll(std::string& str, const std::string& from, const std::string& to
         start_pos += to.length(); // In case 'to' contains 'from', like replacing 'x' with 'yx'
     }
 }
-string printbs(bitset<MAX_KEYBITS>& bs){
-    /*string in = bs.to_string();
-    in = string ( in.rbegin(), in.rend() );
-    in = string("|").append(in);
-    string::size_type last= in.find_last_not_of('0');
-    if(last != in.npos){
-        in=in.erase(last);
-    }
-    replaceAll(in,"00000000","z");
-    replaceAll(in,"11111111","U");
-    return in.append("|");*/
+string printbs_small(bitset<MAX_KEYBITS>& bs){
     stringstream ss("");
     ss << bs.count();
     return ss.str();
 }
+string printbs_large(bitset<MAX_KEYBITS>& bs){
+    string in = bs.to_string();
+    /*in = string ( in.rbegin(), in.rend() );
+    in = string("-").append(in);
+    string::size_type last= in.find_last_not_of('0');
+    if(last != in.npos){
+        in=in.erase(1+last);
+    }*/
+    replaceAll(in,"00000000","a");
+    replaceAll(in,"11111111","A");
+    replaceAll(in,"aaaaaaaa","b");
+    replaceAll(in,"AAAAAAAA","B");
+    replaceAll(in,"bbbbbbbb","c");
+    replaceAll(in,"BBBBBBBB","C");
+    return in.append("-");
+}
+
 bool DFGPrinter::runOnModule(llvm::Module& M)
 {
 	MyNodeType* cur;
@@ -168,10 +175,15 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
                     if(md->isAKeyStart){
                         os << "KeyStart" << "\n";
                     }
-                    os << "<Own:" << printbs(md->own) << ",Pre:" << printbs(md->pre) << ",Post_sum:" << printbs(md->post_sum) << ",Post_min:" << printbs(md->post_min) << ">" << "\n";
+                    os << "<Own:" << printbs_small(md->own) << ",Pre:" << printbs_small(md->pre) << ",Post_sum:" << printbs_small(md->post_sum) << ",Post_min:" << printbs_small(md->post_min) << ">" << "\n";
+
                 }
+                os << "#TOOLTIP#";
                 if(!i->getDebugLoc().isUnknown()){
                     os << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
+                }
+                if(md->isAKeyOperation){
+                 os <<"Own:" << printbs_large(md->own) << "\nPre:" << printbs_large(md->pre) << "\nPost_sum:" << printbs_large(md->post_sum) << "\nPost_min:" << printbs_large(md->post_min);
                 }
 				cur = new MyNodeType(os.str());
                 instrnodemap.insert(std::make_pair(i, cur));

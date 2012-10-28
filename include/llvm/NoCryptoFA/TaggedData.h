@@ -90,10 +90,14 @@ bool functionMarked(Function* ptr);
                         std::map<NoCryptoFA::KeyStartInfo,std::bitset<MAX_KEYBITS> > GEPs;
                         std::set<Function*> markedfunctions;
                         bool antenato(llvm::Instruction* ptr, llvm::Instruction* ricercato);
-                        int latestPos;
+                        int keyLatestPos;
+                        int outLatestPos;
+                        std::set<Instruction*> toBeVisited;
+                        std::set<Instruction*> endPoints;
                         void checkMeta(llvm::Instruction* ptr);
-                        void calcAndSavePre(llvm::Instruction* ptr);
+                        void calcPre(llvm::Instruction* ptr);
                         void calcPost(llvm::Instruction* ptr);
+                        bitset<MAX_KEYBITS> getOutBitset(llvm::Instruction* ptr);
                         bitset<MAX_KEYBITS> getOwnBitset(llvm::Instruction* ptr);
                         void infect(llvm::Instruction* ptr);
                         int  getKeyLen(llvm::Instruction* ptr);
@@ -104,4 +108,5 @@ bool functionMarked(Function* ptr);
 
 
 } 
+
 
