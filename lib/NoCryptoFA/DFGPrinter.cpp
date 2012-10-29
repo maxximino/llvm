@@ -106,9 +106,9 @@ namespace llvm
 					nuovo->parents.push_back(this);
 				}
 				addSubNode(nuovo);
-				for(std::vector<MyNodeType*>::iterator it = nuovo->subnodes.begin(); it != nuovo->subnodes.end(); ++it) {
+                /*for(std::vector<MyNodeType*>::iterator it = nuovo->subnodes.begin(); it != nuovo->subnodes.end(); ++it) {
 					addSubNode(*it);
-				}
+                }*/
 			}
 
 void DFGPrinter::print(raw_ostream& OS, const Module* ) const
