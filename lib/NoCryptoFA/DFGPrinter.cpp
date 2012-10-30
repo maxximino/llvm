@@ -24,14 +24,7 @@
 #include <llvm/NoCryptoFA/DFGPrinter.h>
 using namespace llvm;
 using namespace std;
-template <typename tipo>
-bool exists_in_vector(std::vector<tipo>* v, tipo el)
-{
-	for(typename std::vector<tipo>::iterator it = v->begin(); it != v->end(); ++it) {
-		if(*it == el) { return true; }
-	}
-	return false;
-}
+
 MyNodeType* MyNodeType::rootnode = NULL;
 namespace llvm
 {
@@ -39,8 +32,8 @@ namespace llvm
       	template<> struct GraphTraits<MyNodeType*> {
 		typedef MyNodeType NodeType;
 
-		typedef std::vector<MyNodeType*>::iterator nodes_iterator;
-		typedef std::vector<MyNodeType*>::iterator ChildIteratorType;
+        typedef std::set<MyNodeType*>::iterator nodes_iterator;
+        typedef std::set<MyNodeType*>::iterator ChildIteratorType;
 		static NodeType* getEntryNode(MyNodeType* n) { return n; }
 		static inline nodes_iterator nodes_begin(NodeType* N) {
 			return N->subnodes.begin();
@@ -85,30 +78,9 @@ namespace llvm
     char DFGPrinter::ID = 22;
 
 }
-			void MyNodeType::addSubNode(MyNodeType* nuovo) {
-            /*    static multiset<pair<MyNodeType*,MyNodeType*> > stack;
-                if(stack.count(make_pair(this,nuovo)) >0 ) return; //Devo rompere la ricorsione nei loop
-                stack.insert(make_pair(this,nuovo));
-				if(!exists_in_vector(&subnodes, nuovo)) {
-					subnodes.push_back(nuovo);
-				}
-				for(std::vector<MyNodeType*>::iterator it = parents.begin(); it != parents.end(); ++it) {
-					(*it)->addSubNode(nuovo);
-				}
-                stack.erase(stack.find(make_pair(this,nuovo)));*/
-                MyNodeType::rootnode->subnodes.push_back(nuovo);
-			}
 			void MyNodeType::addChildren(MyNodeType* nuovo) {
-				if(!exists_in_vector(&children, nuovo)) {
-					children.push_back(nuovo);
-				}
-				if(!exists_in_vector(&nuovo->parents, this)) {
-					nuovo->parents.push_back(this);
-				}
-				addSubNode(nuovo);
-                /*for(std::vector<MyNodeType*>::iterator it = nuovo->subnodes.begin(); it != nuovo->subnodes.end(); ++it) {
-					addSubNode(*it);
-                }*/
+                    children.insert(nuovo);
+                    MyNodeType::rootnode->subnodes.insert(nuovo);
 			}
 
 void DFGPrinter::print(raw_ostream& OS, const Module* ) const

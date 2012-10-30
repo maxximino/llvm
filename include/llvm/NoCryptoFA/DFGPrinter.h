@@ -10,15 +10,13 @@ namespace llvm{
 		public:
 			std::string name;
 			bool key;
-			std::vector<MyNodeType*> children;
-			std::vector<MyNodeType*> subnodes; //in sostituzione temporanea di un iteratore intelligente che visita tutti i sottonodi
-			std::vector<MyNodeType*> parents;
+            std::set<MyNodeType*> children;
+            std::set<MyNodeType*> subnodes; //in sostituzione temporanea di un iteratore intelligente che visita tutti i sottonodi
             static MyNodeType* rootnode;
-            MyNodeType(std::string n): children(), subnodes(), parents() {
+            MyNodeType(std::string n): children(), subnodes() {
 				name = n;
 				key = false;
 			}
-			void addSubNode(MyNodeType* nuovo);
 			void addChildren(MyNodeType* nuovo);
 
 
