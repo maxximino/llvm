@@ -15,16 +15,31 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/NoCryptoFA/PropagaMetadati.h>
 #include <llvm/NoCryptoFA/TaggedData.h>
-
+#include <llvm/Transforms/IPO/PassManagerBuilder.h>
+#include <llvm/PassManager.h>
 using namespace llvm;
 using namespace std;
 
 
 	char llvm::PropagaMetadati::ID = 1;
 	PropagaMetadati* llvm::createPropagaMetadatiPass(){
+        initializePropagaMetadatiPass(*PassRegistry::getPassRegistry());
+
 		return new PropagaMetadati();
 	}
+static void addPropagaMetadatiPass(const PassManagerBuilder &Builder,
+                                       PassManagerBase &PM) {
 
+    std::cerr << "Registro?\n";
+    PM.add(createPropagaMetadatiPass());
+
+      std::cerr << "Registrato\n";
+    }
+void PropagaMetadati::registerPass(PassManagerBuilder &pm){
+    std::cerr << "RP?\n";
+    pm.addExtension(pm.EP_EarlyAsPossible,addPropagaMetadatiPass);
+    pm.addGlobalExtension(pm.EP_OptimizerLast,addPropagaMetadatiPass);
+}
 bool PropagaMetadati::runOnFunction(llvm::Function& F)
 {
 	llvm::raw_fd_ostream fd(2, false);
@@ -80,6 +95,8 @@ INITIALIZE_PASS_BEGIN(PropagaMetadati,
                       "propagametadati",
                       false,
                       false)
+INITIALIZE_PASS_DEPENDENCY(TaggedData)
+
 INITIALIZE_PASS_END(PropagaMetadati,
                     "propagametadati",
                     "propagametadati",

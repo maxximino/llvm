@@ -1,4 +1,6 @@
 #pragma once
+#include <llvm/Transforms/IPO/PassManagerBuilder.h>
+
 namespace llvm
 {
 	void initializePropagaMetadatiPass(PassRegistry& Registry);
@@ -23,7 +25,7 @@ namespace llvm
 			virtual const char* getPassName() const {
 				return "PropagaMetadati";
 			}
-
+            static void registerPass(PassManagerBuilder& pm);
 		private:
 //			Instruction* makeFaultable(Instruction* ptr);
 //			void fixNextUses(Value* from, Value* to);
