@@ -6,6 +6,9 @@
 #include <llvm/Instructions.h>
 #include <llvm/Analysis/Dominators.h>
 #include <set>
+#include <iostream>
+#include <unistd.h>
+#include <sys/time.h>
 using namespace llvm;
 void set_if_changed(bool &changed,bitset<MAX_KEYBITS>* var,bitset<MAX_KEYBITS> newvalue){
     if((*var) == newvalue){return;}
@@ -47,6 +50,8 @@ bool TaggedData::runOnFunction(llvm::Function& Fun)
         markedfunctions.insert(&Fun);
         endPoints.clear();
         toBeVisited.clear();
+        struct timeval clk_start,clk_end;
+        gettimeofday(&clk_start,NULL);
         for(llvm::Function::iterator FI = Fun.begin(),
             FE = Fun.end();
             FI != FE;
@@ -68,6 +73,9 @@ bool TaggedData::runOnFunction(llvm::Function& Fun)
                     calcPre(p);
                 }
             }
+            gettimeofday(&clk_end,NULL);
+            std::cerr << "Tempo visita pre: delta-sec" <<  clk_end.tv_sec - clk_start.tv_sec;
+            std::cerr << " delta-usec" <<  clk_end.tv_usec - clk_start.tv_usec << endl;
             for(Instruction*p :endPoints){
                 toBeVisited.clear();
                 calcPost(p);
@@ -79,6 +87,9 @@ bool TaggedData::runOnFunction(llvm::Function& Fun)
                     }
                 }
             }
+            gettimeofday(&clk_end,NULL);
+            std::cerr << "Tempo visita pre+post: delta-sec" <<  clk_end.tv_sec - clk_start.tv_sec;
+            std::cerr << " delta-usec" <<  clk_end.tv_usec - clk_start.tv_usec << endl;
         }
 
     return true;
