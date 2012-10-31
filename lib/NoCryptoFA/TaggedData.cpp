@@ -260,15 +260,34 @@ void TaggedData::infect(llvm::Instruction* ptr){
 
     }
 }
+template<typename T>
+struct CalcPreTraits{
+public:
+    static void calc(bool &changed, T* ptr, NoCryptoFA::InstructionMetadata*md, map<Instruction*,NoCryptoFA::InstructionMetadata*> known){
+        for(User::const_op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
+            if(Instruction *_it = dyn_cast<Instruction>(*it)) {
+                set_if_changed(changed,&(md->pre),md->pre|known[_it]->pre);
+                set_if_changed(changed,&(md->pre),md->pre|known[_it]->own);
+            }
+        }
+    }
+};
+template<>
+struct CalcPreTraits<StoreInst>{
+public:
+    static void calc(bool &changed, StoreInst* ptr, NoCryptoFA::InstructionMetadata*md, map<Instruction*,NoCryptoFA::InstructionMetadata*> known){
+        cerr << "Una store! :)\n";
+        changed=true;
+    }
+};
 void TaggedData::calcPre(llvm::Instruction* ptr){
     NoCryptoFA::InstructionMetadata *md = known[ptr];
     bool changed = false;
-    for(User::const_op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
-        if(Instruction *_it = dyn_cast<Instruction>(*it)) {
-            set_if_changed(changed,&(md->pre),md->pre|known[_it]->pre);
-            set_if_changed(changed,&(md->pre),md->pre|known[_it]->own);
-        }
-    }
+#define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcPreTraits<type>::calc(changed,cast<type>(ptr),md,known)
+    if(0){}
+    CHECK_TYPE(StoreInst);
+    else CalcPreTraits<Instruction>::calc(changed,ptr,md,known);
+#undef CHECK_TYPE
      if(changed || md->own.any()){
         if(!ptr->use_empty()){
                 for(llvm::Instruction::use_iterator it = ptr->use_begin(); it!= ptr->use_end(); ++it) {
