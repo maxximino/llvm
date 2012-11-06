@@ -63,7 +63,8 @@ namespace llvm
                                 return "CalcDFG";
                         }
 bool functionMarked(Function* ptr);
-
+static int getOperandSize(llvm::Instruction* ptr);
+static int getOperandSize(llvm::Type*t);
                 private:
                         // This is the information computed by the analysis.
                         std::map<llvm::Instruction*,std::bitset<MAX_KEYBITS> > instr_bs;
@@ -78,6 +79,7 @@ bool functionMarked(Function* ptr);
                         bitset<MAX_OUTBITS> getOutBitset(llvm::Instruction* ptr);
                         bitset<MAX_KEYBITS> getOwnBitset(llvm::Instruction* ptr);
                         int  getKeyLen(llvm::Instruction* ptr);
+
 
         };
     CalcDFG* createCalcDFGPass();

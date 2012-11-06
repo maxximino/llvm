@@ -10,7 +10,6 @@
 #include <iostream>
 #include <unistd.h>
 #include <sys/time.h>
-
 using namespace llvm;
 template<int SIZE>
 void set_if_changed(bool &changed,bitset<SIZE>* var,bitset<SIZE> newvalue){
@@ -18,6 +17,8 @@ void set_if_changed(bool &changed,bitset<SIZE>* var,bitset<SIZE> newvalue){
     changed=true;
     (*var)=newvalue;
 }
+//#define set_if_changed(changed,var,newvalue) if(var!=(newvalue)){changed=true,var=newvalue;}
+#include "InstrTraits.h"
 
 char llvm::CalcDFG::ID = 213;
 
@@ -29,8 +30,10 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 {
     keyLatestPos=0;
     outLatestPos=0;
+    cerr << "rOF " << Fun.getName().str() << endl;
     instr_bs.clear();
     endPoints.clear();
+
 
     llvm::TaggedData& td = getAnalysis<TaggedData>();
     if(!td.functionMarked(&Fun)){return true;}
@@ -49,8 +52,14 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
                 ++I) {
                 if(NoCryptoFA::known[I]->isAKeyStart){
                     if(NoCryptoFA::known[I]->own.none()){  NoCryptoFA::known[I]->own = getOwnBitset(I); }
-
                     toBeVisited.insert(I);
+                }
+                if(NoCryptoFA::known[I]->isAKeyOperation){
+                    int size= getOperandSize(I);
+                    NoCryptoFA::known[I]->pre.resize(size);
+                    for(int i = 0; i<size;++i){
+                        NoCryptoFA::known[I]->pre[i]=bitset<MAX_KEYBITS>(0);
+                    }
                 }
             }
            }
@@ -119,6 +128,18 @@ bitset<MAX_OUTBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr){
        cerr << " new outLatestPos " << outLatestPos << endl;
    return mybs;
 }
+int CalcDFG::getOperandSize(llvm::Instruction* ptr){
+    return getOperandSize(ptr->getType());
+
+}
+int CalcDFG::getOperandSize(llvm::Type*t){
+    while(t->isPointerTy()){
+        t=t->getPointerElementType();
+    }
+    return t->getScalarSizeInBits(); //TODO: Gestire array e cose diverse da valori scalari e puntatori.
+
+}
+
 bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr){
     raw_fd_ostream rerr(2,false);
     if(instr_bs.find(ptr) != instr_bs.end()){
@@ -137,13 +158,7 @@ bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr){
                 return GEPs[*me];
             }
             else{
-                //copiaincolla da rifattorizzare
-                t = ptr->getType();
-                while(t->isPointerTy()){
-                    t=t->getPointerElementType();
-                }
-                   int keyQty=t->getScalarSizeInBits(); //TODO: Gestire array e cose diverse da valori scalari e puntatori.
-
+                int keyQty=getOperandSize(ptr);
                 bitset<MAX_KEYBITS> mybs;
                 mybs.reset();
                 for(int i = keyLatestPos; i < (keyLatestPos+keyQty); i++){
@@ -152,8 +167,7 @@ bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr){
                 keyLatestPos +=keyQty;
                 cerr << "nuovo kLP " << keyLatestPos << endl;
                // cerr << "kq: "<<keyQty<<  " lp " << latestPos << "--"<< mybs.to_string() << endl;
-
-            instr_bs[ptr]=mybs;
+                instr_bs[ptr]=mybs;
             return mybs;
             }
         }
@@ -164,10 +178,7 @@ bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr){
     else{
      t = ptr->getType();
     }
-        while(t->isPointerTy()){
-            t=t->getPointerElementType();
-        }
-           int keyQty=t->getScalarSizeInBits(); //TODO: Gestire array e cose diverse da valori scalari e puntatori.
+        int keyQty=getOperandSize(t);
 
         bitset<MAX_KEYBITS> mybs;
         mybs.reset();
@@ -180,7 +191,6 @@ bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr){
 
     instr_bs[ptr]=mybs;
     return mybs;
-
 }
 void CalcDFG::calcPost(Instruction *ptr){
 
@@ -206,32 +216,15 @@ void CalcDFG::calcPost(Instruction *ptr){
             }
         }
  }
-template<typename T>
-struct CalcPreTraits{
-public:
-    static void calc(bool &changed, T* ptr, NoCryptoFA::InstructionMetadata*md){
-        for(User::const_op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
-            if(Instruction *_it = dyn_cast<Instruction>(*it)) {
-                set_if_changed<MAX_KEYBITS>(changed,&(md->pre),md->pre|NoCryptoFA::known[_it]->pre);
-                set_if_changed<MAX_KEYBITS>(changed,&(md->pre),md->pre|NoCryptoFA::known[_it]->own);
-            }
-        }
-    }
-};
-template<>
-struct CalcPreTraits<StoreInst>{
-public:
-    static void calc(bool &changed, StoreInst* ptr, NoCryptoFA::InstructionMetadata*md){
-        cerr << "Una store! :)\n";
-        changed=true;
-    }
-};
+
 void CalcDFG::calcPre(llvm::Instruction* ptr){
     NoCryptoFA::InstructionMetadata *md = NoCryptoFA::known[ptr];
     bool changed = false;
 #define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcPreTraits<type>::calc(changed,cast<type>(ptr),md)
     if(0){}
-    CHECK_TYPE(StoreInst);
+    CHECK_TYPE(BinaryOperator);
+    CHECK_TYPE(CastInst);
+    CHECK_TYPE(GetElementPtrInst);
     else CalcPreTraits<Instruction>::calc(changed,ptr,md);
 #undef CHECK_TYPE
      if(changed || md->own.any()){

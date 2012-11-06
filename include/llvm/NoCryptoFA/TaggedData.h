@@ -6,6 +6,7 @@
 #include <map>
 #include <set>
 #include <bitset>
+#include <array>
 #define MAX_KEYBITS 128
 #define MAX_OUTBITS 256
 
@@ -19,15 +20,18 @@ namespace llvm
 	  struct InstructionMetadata{
         bool isAKeyOperation;
         bool isAKeyStart;
-        std::bitset<MAX_KEYBITS> pre;
+        std::vector<std::bitset<MAX_KEYBITS> > pre;
         std::bitset<MAX_KEYBITS> own;
          std::bitset<MAX_OUTBITS> post_sum;
          std::bitset<MAX_OUTBITS> post_min;
-         InstructionMetadata():pre(0),own(0),post_sum(0),post_min(0){
+         Instruction* my_instruction;
+         InstructionMetadata(Instruction* ptr):pre(0),own(0),post_sum(0),post_min(0){
           isAKeyOperation=false;
           isAKeyStart = false;
           post_sum.reset();
           post_min.set();
+          my_instruction=ptr;
+
 	    }
 	  };
       extern std::map<llvm::Instruction*,llvm::NoCryptoFA::InstructionMetadata*> known;

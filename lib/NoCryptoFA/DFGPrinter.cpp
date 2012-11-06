@@ -99,6 +99,36 @@ void replaceAll(std::string& str, const std::string& from, const std::string& to
     }
 }
 template <int SIZE>
+string printvec_small(std::vector<bitset<SIZE> >& v){
+    stringstream ss("");
+    size_t max = 0;
+    for(bitset<SIZE> b :v){
+        max=std::max(max,b.count());
+    }
+    ss << "max:" << max << "bit";
+    return ss.str();
+}
+template <int SIZE>
+string printvec_large(std::vector<bitset<SIZE> >& v){
+    stringstream ss("");
+    ss << "<div class=\"matrice\">";
+    for(bitset<SIZE> b :v){
+          ss << "<div class=\"row\">";
+          for(unsigned int s = 0;s<b.size();++s){
+                if(b[s]){
+                    ss << "<b></b>";
+                }
+                          else{
+                    ss << "<i></i>";
+                }
+          }
+          ss << "</div>";
+    }
+ss << "</div>";
+    return ss.str();
+}
+
+template <int SIZE>
 string printbs_small(bitset<SIZE>& bs){
     stringstream ss("");
     ss << bs.count();
@@ -152,23 +182,27 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				llvm::raw_string_ostream os (outp);
                 std::stringstream boxcont("");
                 std::stringstream fname("");
+                boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/></head><body><pre>";
 				os << *i << "\n";
                 llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
                 if(md->isAKeyOperation){
                     if(md->isAKeyStart){
                         os << "KeyStart" << "\n";
                     }
-                    os << "<Own:" << printbs_small<MAX_KEYBITS>(md->own) << ",Pre:" << printbs_small<MAX_KEYBITS>(md->pre) << ",Post_sum:" << printbs_small<MAX_OUTBITS>(md->post_sum) << ",Post_min:" << printbs_small<MAX_OUTBITS>(md->post_min) << ">" << "\n";
+                    os << "<Own:" << printbs_small<MAX_KEYBITS>(md->own) << ",Pre:" << printvec_small<MAX_KEYBITS>(md->pre) << ",Post_sum:" << printbs_small<MAX_OUTBITS>(md->post_sum) << ",Post_min:" << printbs_small<MAX_OUTBITS>(md->post_min) << ">" << "\n";
 
                 }
+                boxcont << os.str() << "\n";
+                boxcont << "Value size:" << md->pre.size() << "\n";
                 if(!i->getDebugLoc().isUnknown()){
                     boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
                 }
                 if(md->isAKeyOperation){
-                 boxcont <<"Own:" << printbs_large<MAX_KEYBITS>(md->own) << "\nPre:" << printbs_large<MAX_KEYBITS>(md->pre) << "\nPost_sum:" << printbs_large<MAX_OUTBITS>(md->post_sum) << "\nPost_min:" << printbs_large<MAX_OUTBITS>(md->post_min);
+                 boxcont <<"Own:" << printbs_large<MAX_KEYBITS>(md->own) << "\nPre:" << printvec_large<MAX_KEYBITS>(md->pre) << "\nPost_sum:" << printbs_large<MAX_OUTBITS>(md->post_sum) << "\nPost_min:" << printbs_large<MAX_OUTBITS>(md->post_min);
                 }
                 cur = new MyNodeType(os.str());
-                fname << "Node" <<cur;
+                fname << "Node" <<cur << ".html";
+                boxcont << "</pre></body></html>";
                 outFile(fname.str(),boxcont.str());
 
                 instrnodemap.insert(std::make_pair(i, cur));
