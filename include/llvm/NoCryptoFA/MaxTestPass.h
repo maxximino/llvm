@@ -1,8 +1,9 @@
 #pragma once
 #include <llvm/Pass.h>
 #include "llvm/Function.h"
-namespace llvm{
-class MaxTestPass : public llvm::FunctionPass
+namespace llvm
+{
+	class MaxTestPass : public llvm::FunctionPass
 	{
 		public:
 			static char ID;
@@ -29,6 +30,6 @@ class MaxTestPass : public llvm::FunctionPass
 			Instruction* inquina(Instruction* stato, Instruction* shouldbezero);
 	};
 
-MaxTestPass* createMaxTestPass();
-void initializeMaxTestPassPass(PassRegistry& Registry);
+	MaxTestPass* createMaxTestPass();
+	void initializeMaxTestPassPass(PassRegistry& Registry);
 }

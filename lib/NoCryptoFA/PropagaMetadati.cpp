@@ -21,24 +21,24 @@ using namespace llvm;
 using namespace std;
 
 
-	char llvm::PropagaMetadati::ID = 1;
-	PropagaMetadati* llvm::createPropagaMetadatiPass(){
-        initializePropagaMetadatiPass(*PassRegistry::getPassRegistry());
-
-		return new PropagaMetadati();
-	}
-static void addPropagaMetadatiPass(const PassManagerBuilder &Builder,
-                                       PassManagerBase &PM) {
-
-    std::cerr << "Registro?\n";
-    PM.add(createPropagaMetadatiPass());
-
-      std::cerr << "Registrato\n";
-    }
-void PropagaMetadati::registerPass(PassManagerBuilder &pm){
-    std::cerr << "RP?\n";
-    pm.addExtension(pm.EP_EarlyAsPossible,addPropagaMetadatiPass);
-    pm.addGlobalExtension(pm.EP_OptimizerLast,addPropagaMetadatiPass);
+char llvm::PropagaMetadati::ID = 1;
+PropagaMetadati* llvm::createPropagaMetadatiPass()
+{
+	initializePropagaMetadatiPass(*PassRegistry::getPassRegistry());
+	return new PropagaMetadati();
+}
+static void addPropagaMetadatiPass(const PassManagerBuilder& Builder,
+                                   PassManagerBase& PM)
+{
+	std::cerr << "Registro?\n";
+	PM.add(createPropagaMetadatiPass());
+	std::cerr << "Registrato\n";
+}
+void PropagaMetadati::registerPass(PassManagerBuilder& pm)
+{
+	std::cerr << "RP?\n";
+	pm.addExtension(pm.EP_EarlyAsPossible, addPropagaMetadatiPass);
+	pm.addGlobalExtension(pm.EP_OptimizerLast, addPropagaMetadatiPass);
 }
 bool PropagaMetadati::runOnFunction(llvm::Function& F)
 {
@@ -50,22 +50,22 @@ bool PropagaMetadati::runOnFunction(llvm::Function& F)
 	    BB != FE;
 	    ++BB) {
 		for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
-            llvm::NoCryptoFA::InstructionMetadata* md = td.getMD(i);
+			llvm::NoCryptoFA::InstructionMetadata* md = td.getMD(i);
 			if(td.isMarkedAsStatus(i)) {
 				latest_status = i;
 			}
-            if(md->isAKeyOperation && !md->isAKeyStart) {
-                MDString* rec = MDString::get(BB->getContext(), "OPchiave");
+			if(md->isAKeyOperation && !md->isAKeyStart) {
+				MDString* rec = MDString::get(BB->getContext(), "OPchiave");
 				i->setMetadata("MetaMark", MDNode::get(BB->getContext(), ArrayRef<Value*>(rec)));
 			}
-            /*if(md->isAKeyOperation  && isa<llvm::StoreInst>(i)) {
-                for(auto o = i->op_begin();o != i->op_end(); o++ ){
-                    MDString* rec = MDString::get(BB->getContext(), "OPchiave");
-                    if(isa<Instruction>(o)){
-                    (cast<llvm::Instruction>(o))->setMetadata("MetaMark", MDNode::get(BB->getContext(), ArrayRef<Value*>(rec)));
-                    }
-                }
-             }*/
+			/*if(md->isAKeyOperation  && isa<llvm::StoreInst>(i)) {
+			    for(auto o = i->op_begin();o != i->op_end(); o++ ){
+			        MDString* rec = MDString::get(BB->getContext(), "OPchiave");
+			        if(isa<Instruction>(o)){
+			        (cast<llvm::Instruction>(o))->setMetadata("MetaMark", MDNode::get(BB->getContext(), ArrayRef<Value*>(rec)));
+			        }
+			    }
+			 }*/
 		}
 	}
 	return true;

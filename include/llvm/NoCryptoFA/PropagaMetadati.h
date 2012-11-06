@@ -25,11 +25,11 @@ namespace llvm
 			virtual const char* getPassName() const {
 				return "PropagaMetadati";
 			}
-            static void registerPass(PassManagerBuilder& pm);
+			static void registerPass(PassManagerBuilder& pm);
 		private:
-//			Instruction* makeFaultable(Instruction* ptr);
-//			void fixNextUses(Value* from, Value* to);
-//			Instruction* inquina(Instruction* stato, Instruction* shouldbezero);
-		};
-		PropagaMetadati* createPropagaMetadatiPass();
+			//          Instruction* makeFaultable(Instruction* ptr);
+			//          void fixNextUses(Value* from, Value* to);
+			//          Instruction* inquina(Instruction* stato, Instruction* shouldbezero);
+	};
+	PropagaMetadati* createPropagaMetadatiPass();
 } // End llvm namespace.
