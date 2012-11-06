@@ -1,10 +1,9 @@
-#ifndef LLVM_NCFAALL_H
-#define LLVM_NCFAALL_H
-
+#pragma once
 #include <cstdlib>
 #include <iostream>
 #include "TaggedData.h"
 #include "PropagaMetadati.h"
+#include "CalcDFG.h"
 #include "DFGPrinter.h"
 #include "MaxTestPass.h"
 
@@ -25,7 +24,3 @@ namespace {
     }
   } NCFAForcePassLinking; // Force link by creating a global definition.
 }
-
-#endif
-
-

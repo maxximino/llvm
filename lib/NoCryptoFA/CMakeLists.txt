@@ -3,5 +3,6 @@ add_llvm_library(LLVMNoCryptoFA
   TaggedData.cpp
   DFGPrinter.cpp
   MaxTestPass.cpp
+  CalcDFG.cpp
   )
 

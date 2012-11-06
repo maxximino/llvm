@@ -1,6 +1,7 @@
 #include <iostream>
 #include <map>
 #include <list>
+#include <fstream>
 #include <sstream>
 #include "llvm/Constants.h"
 #include "llvm/Instructions.h"
@@ -20,8 +21,8 @@
 #include <llvm/Support/GraphWriter.h>
 #include <llvm/ADT/GraphTraits.h>
 #include <llvm/IntrinsicInst.h>
-#include <llvm/NoCryptoFA/TaggedData.h>
-#include <llvm/NoCryptoFA/DFGPrinter.h>
+#include <llvm/NoCryptoFA/All.h>
+
 using namespace llvm;
 using namespace std;
 
@@ -97,12 +98,14 @@ void replaceAll(std::string& str, const std::string& from, const std::string& to
         start_pos += to.length(); // In case 'to' contains 'from', like replacing 'x' with 'yx'
     }
 }
-string printbs_small(bitset<MAX_KEYBITS>& bs){
+template <int SIZE>
+string printbs_small(bitset<SIZE>& bs){
     stringstream ss("");
     ss << bs.count();
     return ss.str();
 }
-string printbs_large(bitset<MAX_KEYBITS>& bs){
+template <int SIZE>
+string printbs_large(bitset<SIZE>& bs){
     string in = bs.to_string();
     /*in = string ( in.rbegin(), in.rend() );
     in = string("-").append(in);
@@ -112,13 +115,18 @@ string printbs_large(bitset<MAX_KEYBITS>& bs){
     }*/
     replaceAll(in,"00000000","a");
     replaceAll(in,"11111111","A");
-    replaceAll(in,"aaaaaaaa","b");
+    /*replaceAll(in,"aaaaaaaa","b");
     replaceAll(in,"AAAAAAAA","B");
     replaceAll(in,"bbbbbbbb","c");
-    replaceAll(in,"BBBBBBBB","C");
+    replaceAll(in,"BBBBBBBB","C");*/
     return in.append("-");
 }
 
+void outFile(std::string nodename, std::string contenuto){
+    string fname("out.dir/");
+    ofstream out(fname.append(nodename));
+    out << contenuto;
+}
 bool DFGPrinter::runOnModule(llvm::Module& M)
 {
 	MyNodeType* cur;
@@ -134,6 +142,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 		    FE = F->end();
 		    BB != FE;
 		    ++BB) {
+            CalcDFG& cd = getAnalysis<CalcDFG>(*F);
             TaggedData& td = getAnalysis<TaggedData>(*F);
             if(!td.functionMarked(&(*F))) continue;
 
@@ -141,29 +150,33 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
                 if(isa<llvm::DbgInfoIntrinsic>(i)){continue;}
 				std::string outp;
 				llvm::raw_string_ostream os (outp);
+                std::stringstream boxcont("");
+                std::stringstream fname("");
 				os << *i << "\n";
-                llvm::NoCryptoFA::InstructionMetadata* md = td.getMD(i);
+                llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
                 if(md->isAKeyOperation){
                     if(md->isAKeyStart){
                         os << "KeyStart" << "\n";
                     }
-                    os << "<Own:" << printbs_small(md->own) << ",Pre:" << printbs_small(md->pre) << ",Post_sum:" << printbs_small(md->post_sum) << ",Post_min:" << printbs_small(md->post_min) << ">" << "\n";
+                    os << "<Own:" << printbs_small<MAX_KEYBITS>(md->own) << ",Pre:" << printbs_small<MAX_KEYBITS>(md->pre) << ",Post_sum:" << printbs_small<MAX_OUTBITS>(md->post_sum) << ",Post_min:" << printbs_small<MAX_OUTBITS>(md->post_min) << ">" << "\n";
 
                 }
-                os << "#TOOLTIP#";
                 if(!i->getDebugLoc().isUnknown()){
-                    os << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
+                    boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
                 }
                 if(md->isAKeyOperation){
-                 os <<"Own:" << printbs_large(md->own) << "\nPre:" << printbs_large(md->pre) << "\nPost_sum:" << printbs_large(md->post_sum) << "\nPost_min:" << printbs_large(md->post_min);
+                 boxcont <<"Own:" << printbs_large<MAX_KEYBITS>(md->own) << "\nPre:" << printbs_large<MAX_KEYBITS>(md->pre) << "\nPost_sum:" << printbs_large<MAX_OUTBITS>(md->post_sum) << "\nPost_min:" << printbs_large<MAX_OUTBITS>(md->post_min);
                 }
-				cur = new MyNodeType(os.str());
+                cur = new MyNodeType(os.str());
+                fname << "Node" <<cur;
+                outFile(fname.str(),boxcont.str());
+
                 instrnodemap.insert(std::make_pair(i, cur));
                 pair<multimap<Instruction*,MyNodeType*>::iterator,multimap<Instruction*,MyNodeType*>::iterator> range=future_edges.equal_range(i);
                 for(multimap<Instruction*,MyNodeType*>::iterator it = range.first; it!= range.second;++it){
                     cur->addChildren(it->second);
                 }
-				if(td.isMarkedAsKey(i)) {
+                if(td.isMarkedAsKey(i)) {
 					cur->key = true;
 				}
 				added = false;
@@ -216,6 +229,9 @@ void DFGPrinter::getAnalysisUsage(llvm::AnalysisUsage& AU) const
 	// any analysis and potentially invalidates all analysis. The default
 	// behaviour is to invalidate all analysis.
     AU.addRequired<TaggedData>();
+    AU.addRequired<CalcDFG>();
+    AU.setPreservesAll();
+
 }
 
 
