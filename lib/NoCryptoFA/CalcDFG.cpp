@@ -217,7 +217,7 @@ void calcNeedsMasking(NoCryptoFA::InstructionMetadata* md){
     bool hasEmpty = false;
     Value* v1;
     Value* v2;
-
+    if(!md->hasMetPlaintext) return;
     if(isa<BinaryOperator>(md->my_instruction)){
            switch(md->my_instruction->getOpcode()){
            case Instruction::Shl:

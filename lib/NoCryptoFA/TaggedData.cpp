@@ -89,6 +89,26 @@ void TaggedData::infect(llvm::Instruction* ptr)
 		}
 	}
 }
+void TaggedData::infectPlain(llvm::Instruction* ptr)
+{
+    llvm::NoCryptoFA::InstructionMetadata* md;
+    hasmd = true;
+    if(NoCryptoFA::known.find(ptr) != NoCryptoFA::known.end()) {
+        md = NoCryptoFA::known[ptr];
+    } else {
+        md = new llvm::NoCryptoFA::InstructionMetadata(ptr);
+        NoCryptoFA::known[ptr] = md;
+    }
+    if(!md->hasMetPlaintext) {
+        md->hasMetPlaintext = true;
+        for(llvm::Instruction::use_iterator i = ptr->use_begin(); i != ptr->use_end(); ++i) {
+            if (Instruction* Inst = dyn_cast<Instruction>(*i)) {
+                infectPlain(Inst);
+            }
+        }
+    }
+}
+
 llvm::NoCryptoFA::InstructionMetadata* TaggedData::getMD(llvm::Instruction* ptr)
 {
 	return NoCryptoFA::known[ptr];
@@ -96,6 +116,9 @@ llvm::NoCryptoFA::InstructionMetadata* TaggedData::getMD(llvm::Instruction* ptr)
 
 void TaggedData::checkMeta(llvm::Instruction* ptr)
 {
+    if( !std::string("plain").compare(readMetaMark(ptr))) {
+        infectPlain(ptr);
+    }
 	if( !std::string("chiave").compare(readMetaMark(ptr))) {
 		infect(ptr);
 	} else if( !std::string("OPchiave").compare(readMetaMark(ptr))) {

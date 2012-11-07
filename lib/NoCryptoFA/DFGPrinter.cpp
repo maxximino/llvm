@@ -202,6 +202,11 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 					os << "<Own:" << printbs_small<MAX_KEYBITS>(md->own) << ",Pre:" << printvec_small<MAX_KEYBITS>(md->pre) << ",Post_sum:" << printbs_small<MAX_OUTBITS>(md->post_sum) << ",Post_min:" << printbs_small<MAX_OUTBITS>(md->post_min) << ">" << "\n";
 				}
 				boxcont << os.str() << "\n";
+                if(md->hasMetPlaintext){
+                    boxcont << "Ha incontrato il plaintext";
+                }else{
+                    boxcont << "Non ha incontrato il plaintext";
+                }
 				boxcont << "Value size:" << md->pre.size() << "\n";
 				if(!i->getDebugLoc().isUnknown()) {
 					boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";

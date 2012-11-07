@@ -22,6 +22,7 @@ namespace llvm
 			bool isAKeyOperation;
 			bool isAKeyStart;
             bool hasToBeProtected;
+            bool hasMetPlaintext;
 			std::vector<std::bitset<MAX_KEYBITS> > pre;
 			std::bitset<MAX_KEYBITS> own;
 			std::bitset<MAX_OUTBITS> post_sum;
@@ -31,6 +32,7 @@ namespace llvm
 				isAKeyOperation = false;
 				isAKeyStart = false;
                 hasToBeProtected = false;
+                hasMetPlaintext = false;
 				post_sum.reset();
 				post_min.set();
 				my_instruction = ptr;
@@ -63,6 +65,7 @@ namespace llvm
 			std::set<Function*> markedfunctions;
 			void checkMeta(llvm::Instruction* ptr);
 			void infect(llvm::Instruction* ptr);
+            void infectPlain(llvm::Instruction* ptr);
 			bool hasmd;
 	};
 	TaggedData* createTaggedDataPass();
