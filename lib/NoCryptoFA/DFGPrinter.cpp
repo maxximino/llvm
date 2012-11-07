@@ -59,15 +59,21 @@ namespace llvm
 
 		std::string getNodeAttributes(MyNodeType* Node,
 		                              const MyNodeType* Graph) {
-			if(Node->key) {
+            if(Node->md->hasToBeProtected){
+                    return "style=filled,color=\"#f458f4\"";
+            }
+            else if(Node->md->isAKeyOperation) {
 				return "style=filled,color=\"#58faf4\"";
-			}
-			return "style=filled,color=\"#e0e0e0\"";
+            }
+            return "style=filled,color=\"#e0e0e0\"";
 		}
 		template<typename EdgeIter>
 		std::string getEdgeAttributes(const MyNodeType* Node, EdgeIter EI,
 		                              const MyNodeType* Graph) {
-			if(Node->key) {
+            if(Node->md->hasToBeProtected){
+                    return "color=\"#f458f4\"";
+            }
+            else if(Node->md->isAKeyOperation) {
 				return "color=\"#58faf4\"";
 			}
 			return "color=\"#e0e0e0\"";
@@ -151,7 +157,7 @@ string printbs_large(bitset<SIZE>& bs)
 	replaceAll(in, "00000000", "a");
 	replaceAll(in, "11111111", "A");
 	/*replaceAll(in,"aaaaaaaa","b");
-	replaceAll(in,"AAAAAAAA","B");
+    replaceAll(in,"AAAAAAAA","B");
 	replaceAll(in,"bbbbbbbb","c");
 	replaceAll(in,"BBBBBBBB","C");*/
 	return in.append("-");
@@ -212,9 +218,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				for(multimap<Instruction*, MyNodeType*>::iterator it = range.first; it != range.second; ++it) {
 					cur->addChildren(it->second);
 				}
-				if(td.isMarkedAsKey(i)) {
-					cur->key = true;
-				}
+                cur->md=td.getMD(i);
 				added = false;
 				if(isa<PHINode>(i)) {
 					PHINode* p = cast<PHINode>(i);

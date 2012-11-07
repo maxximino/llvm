@@ -21,6 +21,7 @@ namespace llvm
 		struct InstructionMetadata {
 			bool isAKeyOperation;
 			bool isAKeyStart;
+            bool hasToBeProtected;
 			std::vector<std::bitset<MAX_KEYBITS> > pre;
 			std::bitset<MAX_KEYBITS> own;
 			std::bitset<MAX_OUTBITS> post_sum;
@@ -29,6 +30,7 @@ namespace llvm
 			InstructionMetadata(Instruction* ptr): pre(0), own(0), post_sum(0), post_min(0) {
 				isAKeyOperation = false;
 				isAKeyStart = false;
+                hasToBeProtected = false;
 				post_sum.reset();
 				post_min.set();
 				my_instruction = ptr;
@@ -67,5 +69,6 @@ namespace llvm
 
 
 }
+
 
 

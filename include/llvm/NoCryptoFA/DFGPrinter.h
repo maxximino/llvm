@@ -10,13 +10,12 @@ namespace llvm
 	{
 		public:
 			std::string name;
-			bool key;
+            NoCryptoFA::InstructionMetadata* md;
 			std::set<MyNodeType*> children;
 			std::set<MyNodeType*> subnodes; //in sostituzione temporanea di un iteratore intelligente che visita tutti i sottonodi
 			static MyNodeType* rootnode;
 			MyNodeType(std::string n): children(), subnodes() {
 				name = n;
-				key = false;
 			}
 			void addChildren(MyNodeType* nuovo);
 
