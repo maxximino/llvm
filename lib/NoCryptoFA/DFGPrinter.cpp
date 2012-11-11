@@ -59,21 +59,25 @@ namespace llvm
 
 		std::string getNodeAttributes(MyNodeType* Node,
 		                              const MyNodeType* Graph) {
-			if(Node->md->hasToBeProtected) {
-				return "style=filled,color=\"#f458f4\"";
-			} else if(Node->md->isAKeyOperation) {
-				return "style=filled,color=\"#58faf4\"";
-			}
+            if(Node->md){
+                if(Node->md->hasToBeProtected) {
+                    return "style=filled,color=\"#f458f4\"";
+                } else if(Node->md->isAKeyOperation) {
+                    return "style=filled,color=\"#58faf4\"";
+                }
+            }
 			return "style=filled,color=\"#e0e0e0\"";
 		}
 		template<typename EdgeIter>
 		std::string getEdgeAttributes(const MyNodeType* Node, EdgeIter EI,
 		                              const MyNodeType* Graph) {
-			if(Node->md->hasToBeProtected) {
-				return "color=\"#f458f4\"";
-			} else if(Node->md->isAKeyOperation) {
-				return "color=\"#58faf4\"";
-			}
+            if(Node->md){
+                if(Node->md->hasToBeProtected) {
+                    return "color=\"#f458f4\"";
+                } else if(Node->md->isAKeyOperation) {
+                    return "color=\"#58faf4\"";
+                }
+            }
 			return "color=\"#e0e0e0\"";
 		}
 	};

@@ -118,12 +118,8 @@ bitset<MAX_OUTBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr)
 		cerr << "Istruzione senza usi che non è una return nè una store nè una call... Segfaultiamo per far notare l'importanza del problema.." << endl;
 		int* ptr = 0;
 		*ptr = 1;
-	}
-	Type* t = op->getType();
-	while(t->isPointerTy()) {
-		t = t->getPointerElementType();
-	}
-	int outQty = t->getScalarSizeInBits(); //TODO: Gestire array e cose diverse da valori scalari e puntatori.
+    }
+    int outQty = getOperandSize(op->getType());
 	//  cerr << "latestPos " << outLatestPos << " outQty:" << outQty << endl;
 	bitset<MAX_OUTBITS> mybs;
 	mybs.reset();
