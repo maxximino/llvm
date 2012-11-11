@@ -58,10 +58,10 @@ bool PropagaMetadati::runOnFunction(llvm::Function& F)
 				MDString* rec = MDString::get(BB->getContext(), "OPchiave");
 				i->setMetadata("MetaMark", MDNode::get(BB->getContext(), ArrayRef<Value*>(rec)));
 			}
-            if(md->hasMetPlaintext){
-                MDString* rec = MDString::get(BB->getContext(), "plain");
-                i->setMetadata("MetaMark", MDNode::get(BB->getContext(), ArrayRef<Value*>(rec)));
-            }
+			if(md->hasMetPlaintext) {
+				MDString* rec = MDString::get(BB->getContext(), "plain");
+				i->setMetadata("MetaMark", MDNode::get(BB->getContext(), ArrayRef<Value*>(rec)));
+			}
 			/*if(md->isAKeyOperation  && isa<llvm::StoreInst>(i)) {
 			    for(auto o = i->op_begin();o != i->op_end(); o++ ){
 			        MDString* rec = MDString::get(BB->getContext(), "OPchiave");

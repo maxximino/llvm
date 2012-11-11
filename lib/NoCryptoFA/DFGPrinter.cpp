@@ -59,21 +59,19 @@ namespace llvm
 
 		std::string getNodeAttributes(MyNodeType* Node,
 		                              const MyNodeType* Graph) {
-            if(Node->md->hasToBeProtected){
-                    return "style=filled,color=\"#f458f4\"";
-            }
-            else if(Node->md->isAKeyOperation) {
+			if(Node->md->hasToBeProtected) {
+				return "style=filled,color=\"#f458f4\"";
+			} else if(Node->md->isAKeyOperation) {
 				return "style=filled,color=\"#58faf4\"";
-            }
-            return "style=filled,color=\"#e0e0e0\"";
+			}
+			return "style=filled,color=\"#e0e0e0\"";
 		}
 		template<typename EdgeIter>
 		std::string getEdgeAttributes(const MyNodeType* Node, EdgeIter EI,
 		                              const MyNodeType* Graph) {
-            if(Node->md->hasToBeProtected){
-                    return "color=\"#f458f4\"";
-            }
-            else if(Node->md->isAKeyOperation) {
+			if(Node->md->hasToBeProtected) {
+				return "color=\"#f458f4\"";
+			} else if(Node->md->isAKeyOperation) {
 				return "color=\"#58faf4\"";
 			}
 			return "color=\"#e0e0e0\"";
@@ -157,7 +155,7 @@ string printbs_large(bitset<SIZE>& bs)
 	replaceAll(in, "00000000", "a");
 	replaceAll(in, "11111111", "A");
 	/*replaceAll(in,"aaaaaaaa","b");
-    replaceAll(in,"AAAAAAAA","B");
+	replaceAll(in,"AAAAAAAA","B");
 	replaceAll(in,"bbbbbbbb","c");
 	replaceAll(in,"BBBBBBBB","C");*/
 	return in.append("-");
@@ -202,11 +200,11 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 					os << "<Own:" << printbs_small<MAX_KEYBITS>(md->own) << ",Pre:" << printvec_small<MAX_KEYBITS>(md->pre) << ",Post_sum:" << printbs_small<MAX_OUTBITS>(md->post_sum) << ",Post_min:" << printbs_small<MAX_OUTBITS>(md->post_min) << ">" << "\n";
 				}
 				boxcont << os.str() << "\n";
-                if(md->hasMetPlaintext){
-                    boxcont << "Ha incontrato il plaintext";
-                }else{
-                    boxcont << "Non ha incontrato il plaintext";
-                }
+				if(md->hasMetPlaintext) {
+					boxcont << "Ha incontrato il plaintext\n";
+				} else {
+					boxcont << "Non ha incontrato il plaintext\n";
+				}
 				boxcont << "Value size:" << md->pre.size() << "\n";
 				if(!i->getDebugLoc().isUnknown()) {
 					boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
@@ -223,7 +221,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				for(multimap<Instruction*, MyNodeType*>::iterator it = range.first; it != range.second; ++it) {
 					cur->addChildren(it->second);
 				}
-                cur->md=td.getMD(i);
+				cur->md = td.getMD(i);
 				added = false;
 				if(isa<PHINode>(i)) {
 					PHINode* p = cast<PHINode>(i);
