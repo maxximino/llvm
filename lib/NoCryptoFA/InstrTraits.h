@@ -119,6 +119,28 @@ static void Calc_Pre_Trunc(bool& changed, CastInst* ptr, NoCryptoFA::Instruction
 	changed = true; //dovrei confrontare....ne val la pena? TBD
 }
 
+static void usualMaskingLogic(Instruction* ptr, NoCryptoFA::InstructionMetadata* md)
+{
+	bool hasEmpty = false;
+	if(!md->hasMetPlaintext) { return; }
+for(bitset<MAX_KEYBITS> b : md->pre) {
+		if(b.count() < SecurityMargin.getValue()) {
+			hasEmpty = true;
+			break;
+		}
+	}
+	md->hasToBeProtected = hasEmpty;
+	if(md->hasToBeProtected) {
+		bool removeFlag = true;
+		for(auto it = md->my_instruction->op_begin(); it != md->my_instruction->op_end(); ++it) {
+			if(!isa<Instruction>(it)) { continue; }
+			NoCryptoFA::InstructionMetadata* opmd = NoCryptoFA::known[cast<Instruction>(it)];
+			if(!opmd->hasMetPlaintext) { removeFlag = false; break; }
+			if(opmd->hasMetPlaintext && opmd->hasToBeProtected) { removeFlag = false; break; }
+		}
+		if(removeFlag) { md->hasToBeProtected = false; }
+	}
+}
 
 
 
@@ -127,6 +149,9 @@ struct CalcPreTraits {
 	public:
 		static void calc(bool& changed, T* ptr, NoCryptoFA::InstructionMetadata* md) {
 			Calc_Pre_BitwiseOr(changed, ptr, md);
+		}
+		static void needsMasking(T* ptr, NoCryptoFA::InstructionMetadata* md) {
+			usualMaskingLogic(ptr, md);
 		}
 };
 
@@ -137,6 +162,10 @@ struct CalcPreTraits<GetElementPtrInst> {
 		static void calc(bool& changed, GetElementPtrInst* ptr, NoCryptoFA::InstructionMetadata* md) {
 			Calc_Pre_BiggestSum(changed, ptr, md);
 		}
+		static void needsMasking(GetElementPtrInst* ptr, NoCryptoFA::InstructionMetadata* md) {
+			usualMaskingLogic(ptr, md);
+		}
+
 };
 
 template<>
@@ -174,6 +203,34 @@ struct CalcPreTraits<BinaryOperator> {
 					break;
 			}
 		}
+		static void needsMasking(BinaryOperator* ptr, NoCryptoFA::InstructionMetadata* md) {
+			Value* v1;
+			Value* v2;
+			if(!md->hasMetPlaintext) { return; }
+			switch(md->my_instruction->getOpcode()) {
+				case Instruction::Shl:
+				case Instruction::LShr:
+				case Instruction::AShr:
+					//orrido, ma vediamo se funziona
+					md->hasToBeProtected = NoCryptoFA::known[cast<Instruction>(ptr->getOperand(0))]->hasToBeProtected;
+					return;
+				case Instruction::And:
+					v1 = ptr->getOperand(0);
+					v2 = ptr->getOperand(1);
+					Instruction* i;
+					if(isa<ConstantInt>(v2) && isa<Instruction>(v1)) {
+						i = cast<Instruction>(v1);
+					} else if(isa<ConstantInt>(v1) && isa<Instruction>(v2)) {
+						i = cast<Instruction>(v2);
+					} else { break;}
+					md->hasToBeProtected = NoCryptoFA::known[i]->hasToBeProtected;
+					return;
+					break;
+				default:
+					usualMaskingLogic(ptr, md);
+					break;
+			}
+		}
 };
 template<>
 struct CalcPreTraits<CastInst> {
@@ -200,5 +257,9 @@ struct CalcPreTraits<CastInst> {
 					Calc_Pre_BitwiseOr(changed, ptr, md);
 					break;
 			}
+		}
+		static void needsMasking(CastInst* ptr, NoCryptoFA::InstructionMetadata* md) {
+			if(!md->hasMetPlaintext) { return; }
+			md->hasToBeProtected = NoCryptoFA::known[cast<Instruction>(ptr->getOperand(0))]->hasToBeProtected;
 		}
 };

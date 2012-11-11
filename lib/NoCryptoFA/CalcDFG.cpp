@@ -218,60 +218,7 @@ void CalcDFG::calcPost(Instruction* ptr)
 		}
 	}
 }
-// FARE REFACTORING DI QUESTA PORCHERIA
-void calcNeedsMasking(NoCryptoFA::InstructionMetadata* md)
-{
-	bool hasEmpty = false;
-	Value* v1;
-	Value* v2;
-	if(!md->hasMetPlaintext) { return; }
-	if(isa<BinaryOperator>(md->my_instruction)) {
-		switch(md->my_instruction->getOpcode()) {
-			case Instruction::Shl:
-			case Instruction::LShr:
-			case Instruction::AShr:
-				//orrido, ma vediamo se funziona
-				md->hasToBeProtected = NoCryptoFA::known[cast<Instruction>(md->my_instruction->getOperand(0))]->hasToBeProtected;
-				return;
-			case Instruction::And:
-				v1 = md->my_instruction->getOperand(0);
-				v2 = md->my_instruction->getOperand(1);
-				Instruction* i;
-				if(isa<ConstantInt>(v2) && isa<Instruction>(v1)) {
-					i = cast<Instruction>(v1);
-				} else if(isa<ConstantInt>(v1) && isa<Instruction>(v2)) {
-					i = cast<Instruction>(v2);
-				} else { break;}
-				md->hasToBeProtected = NoCryptoFA::known[i]->hasToBeProtected;
-				return;
-				break;
-			default:
-				break;
-		}
-	}
-	if(isa<CastInst>(md->my_instruction)) {
-		//orrido, ma vediamo se funziona
-		md->hasToBeProtected = NoCryptoFA::known[cast<Instruction>(md->my_instruction->getOperand(0))]->hasToBeProtected;
-		return;
-	}
-for(bitset<MAX_KEYBITS> b : md->pre) {
-		if(b.count() < SecurityMargin.getValue()) {
-			hasEmpty = true;
-			break;
-		}
-	}
-	md->hasToBeProtected = hasEmpty;
-	if(md->hasToBeProtected) {
-		bool removeFlag = true;
-		for(auto it = md->my_instruction->op_begin(); it != md->my_instruction->op_end(); ++it) {
-			if(!isa<Instruction>(it)) { continue; }
-			NoCryptoFA::InstructionMetadata* opmd = NoCryptoFA::known[cast<Instruction>(it)];
-			if(!opmd->hasMetPlaintext) { removeFlag = false; break; }
-			if(opmd->hasMetPlaintext && opmd->hasToBeProtected) { removeFlag = false; break; }
-		}
-		if(removeFlag) { md->hasToBeProtected = false; }
-	}
-}
+
 void CalcDFG::calcPre(llvm::Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
@@ -284,7 +231,13 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
 	else { CalcPreTraits<Instruction>::calc(changed, ptr, md); }
 #undef CHECK_TYPE
 	if(changed || md->own.any()) {
-		calcNeedsMasking(md);
+#define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcPreTraits<type>::needsMasking(cast<type>(ptr),md)
+		if(0) {}
+		CHECK_TYPE(BinaryOperator);
+		CHECK_TYPE(CastInst);
+		CHECK_TYPE(GetElementPtrInst);
+		else { CalcPreTraits<Instruction>::needsMasking(ptr, md); }
+#undef CHECK_TYPE
 		if(!ptr->use_empty()) {
 			for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
 				if(Instruction* _it = dyn_cast<Instruction>(*it)) {
