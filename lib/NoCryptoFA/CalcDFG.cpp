@@ -27,7 +27,7 @@ void set_if_changed(bool& changed, bitset<SIZE>* var, bitset<SIZE> newvalue)
 //#define set_if_changed(changed,var,newvalue) if(var!=(newvalue)){changed=true,var=newvalue;}
 #include "InstrTraits.h"
 
-char llvm::CalcDFG::ID = 213;
+char llvm::CalcDFG::ID = 218;
 
 CalcDFG* llvm::createCalcDFGPass()
 {
@@ -92,7 +92,7 @@ for(Instruction * p : endPoints) {
 	gettimeofday(&clk_end, NULL);
 	std::cerr << "Tempo visita pre+post: delta-sec" <<  clk_end.tv_sec - clk_start.tv_sec;
 	std::cerr << " delta-usec" <<  clk_end.tv_usec - clk_start.tv_usec << endl;
-	return true;
+    return false;
 }
 llvm::NoCryptoFA::InstructionMetadata* CalcDFG::getMD(llvm::Instruction* ptr)
 {
@@ -141,7 +141,9 @@ int CalcDFG::getOperandSize(llvm::Type* t)
 	}
 	return t->getScalarSizeInBits(); //TODO: Gestire array e cose diverse da valori scalari e puntatori.
 }
-
+bool CalcDFG::shouldBeProtected(Instruction* ptr){
+    return NoCryptoFA::known[ptr]->hasToBeProtected;
+}
 bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
 {
 	raw_fd_ostream rerr(2, false);
@@ -264,10 +266,12 @@ using namespace llvm;
 INITIALIZE_PASS_BEGIN(CalcDFG,
                       "CalcDFG",
                       "CalcDFG",
-                      true,
+                      false,
                       true)
+INITIALIZE_PASS_DEPENDENCY(TaggedData)
+
 INITIALIZE_PASS_END(CalcDFG,
                     "CalcDFG",
                     "CalcDFG",
-                    true,
+                    false,
                     true)

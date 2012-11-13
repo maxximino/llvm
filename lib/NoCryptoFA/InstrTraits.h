@@ -130,7 +130,7 @@ for(bitset<MAX_KEYBITS> b : md->pre) {
 		}
 	}
 	md->hasToBeProtected = hasEmpty;
-	if(md->hasToBeProtected) {
+    if(md->hasToBeProtected) {
 		bool removeFlag = true;
 		for(auto it = md->my_instruction->op_begin(); it != md->my_instruction->op_end(); ++it) {
 			if(!isa<Instruction>(it)) { continue; }
@@ -139,7 +139,7 @@ for(bitset<MAX_KEYBITS> b : md->pre) {
 			if(opmd->hasMetPlaintext && opmd->hasToBeProtected) { removeFlag = false; break; }
 		}
 		if(removeFlag) { md->hasToBeProtected = false; }
-	}
+    }
 }
 
 
@@ -226,10 +226,9 @@ struct CalcPreTraits<BinaryOperator> {
 					md->hasToBeProtected = NoCryptoFA::known[i]->hasToBeProtected;
 					return;
 					break;
-				default:
-					usualMaskingLogic(ptr, md);
-					break;
 			}
+            usualMaskingLogic(ptr, md);
+
 		}
 };
 template<>

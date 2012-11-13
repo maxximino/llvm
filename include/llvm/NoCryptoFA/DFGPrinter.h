@@ -21,12 +21,17 @@ namespace llvm
 
 
 	};
+    void initializeDFGPrinterPass(PassRegistry& Registry);
 
 	class DFGPrinter : public llvm::ModulePass
 	{
 		public:
 			static char ID;
-			DFGPrinter() : llvm::ModulePass(ID), instrnodemap() { rootptr = new MyNodeType("root"); MyNodeType::rootnode = rootptr;}
+            DFGPrinter() : llvm::ModulePass(ID), instrnodemap() {
+                initializeDFGPrinterPass(*PassRegistry::getPassRegistry());
+
+                rootptr = new MyNodeType("root"); MyNodeType::rootnode = rootptr;
+            }
 			virtual ~DFGPrinter() { delete rootptr;}
 			// This member function must implement the code of your pass.
 			virtual bool runOnModule(llvm::Module& M);
@@ -46,6 +51,5 @@ namespace llvm
 			MyNodeType* rootptr;
 
 	};
-	void initializeDFGPrinterPass(PassRegistry& Registry);
 	DFGPrinter* createDFGPrinterPass();
 }

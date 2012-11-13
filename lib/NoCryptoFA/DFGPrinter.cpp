@@ -259,7 +259,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 			}
 		}
 	}
-	return true;
+    return false;
 }
 
 
@@ -297,6 +297,10 @@ INITIALIZE_PASS_BEGIN(DFGPrinter,
                       "dfgprint",
                       false,
                       false)
+INITIALIZE_PASS_DEPENDENCY(TaggedData)
+INITIALIZE_PASS_DEPENDENCY(CalcDFG)
+
+
 INITIALIZE_PASS_END(DFGPrinter,
                     "dfgprint",
                     "dfgprint",

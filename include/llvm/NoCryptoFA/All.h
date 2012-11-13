@@ -6,7 +6,7 @@
 #include "CalcDFG.h"
 #include "DFGPrinter.h"
 #include "MaxTestPass.h"
-
+#include "InstructionReplace.h"
 namespace
 {
 	static struct NCFAForcePassLinking {
@@ -22,6 +22,7 @@ namespace
 			(void) llvm::createTaggedDataPass();
 			(void) llvm::createDFGPrinterPass();
 			(void) llvm::createMaxTestPass();
+            (void) llvm::createInstructionReplacePass();
 		}
 	} NCFAForcePassLinking; // Force link by creating a global definition.
 }

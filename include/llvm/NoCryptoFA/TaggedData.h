@@ -47,7 +47,10 @@ namespace llvm
 		public:
 			static char ID;
 			TaggedData() : llvm::FunctionPass(ID) { }
-			TaggedData(const TaggedData& fp) : llvm::FunctionPass(fp.ID) { }
+            TaggedData(const TaggedData& fp) : llvm::FunctionPass(fp.ID) {
+                initializeTaggedDataPass(*PassRegistry::getPassRegistry());
+
+            }
 			virtual NoCryptoFA::InstructionMetadata* getMD(llvm::Instruction* ptr);
 
 			virtual bool runOnFunction(llvm::Function& Fun);

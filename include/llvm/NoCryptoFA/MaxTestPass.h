@@ -3,13 +3,17 @@
 #include "llvm/Function.h"
 namespace llvm
 {
+void initializeMaxTestPassPass(PassRegistry& Registry);
 	class MaxTestPass : public llvm::FunctionPass
 	{
 		public:
 			static char ID;
 
 		public:
-			MaxTestPass() : llvm::FunctionPass(ID) { }
+            MaxTestPass() : llvm::FunctionPass(ID) {
+                initializeMaxTestPassPass(*PassRegistry::getPassRegistry());
+
+            }
 
 		public:
 			// This member function must implement the code of your pass.
@@ -31,5 +35,5 @@ namespace llvm
 	};
 
 	MaxTestPass* createMaxTestPass();
-	void initializeMaxTestPassPass(PassRegistry& Registry);
+
 }

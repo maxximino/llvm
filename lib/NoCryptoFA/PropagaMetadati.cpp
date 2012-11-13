@@ -72,7 +72,7 @@ bool PropagaMetadati::runOnFunction(llvm::Function& F)
 			 }*/
 		}
 	}
-	return true;
+    return false;
 }
 
 void PropagaMetadati::getAnalysisUsage(llvm::AnalysisUsage& AU) const

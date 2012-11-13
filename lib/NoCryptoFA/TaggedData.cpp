@@ -46,7 +46,7 @@ bool TaggedData::runOnFunction(llvm::Function& Fun)
 	if(hasmd) {
 		markedfunctions.insert(&Fun);
 	}
-	return true;
+    return false;
 }
 
 std::string readMetaMark(Instruction* ptr)
@@ -143,6 +143,8 @@ INITIALIZE_PASS_BEGIN(TaggedData,
                       "TaggedData",
                       true,
                       true)
+INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+
 INITIALIZE_PASS_END(TaggedData,
                     "TaggedData",
                     "TaggedData",

@@ -162,6 +162,9 @@ INITIALIZE_PASS_BEGIN(MaxTestPass,
                       "maxtest",
                       false,
                       false)
+INITIALIZE_PASS_DEPENDENCY(TaggedData)
+INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+
 INITIALIZE_PASS_END(MaxTestPass,
                     "max-test",
                     "maxtest",
