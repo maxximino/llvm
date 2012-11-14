@@ -56,10 +56,9 @@ namespace llvm
 		public:
 			static char ID;
 			CalcDFG() : llvm::FunctionPass(ID) { }
-            CalcDFG(const CalcDFG& fp) : llvm::FunctionPass(fp.ID) {
-                initializeCalcDFGPass(*PassRegistry::getPassRegistry());
-
-            }
+			CalcDFG(const CalcDFG& fp) : llvm::FunctionPass(fp.ID) {
+				initializeCalcDFGPass(*PassRegistry::getPassRegistry());
+			}
 
 			virtual bool runOnFunction(llvm::Function& Fun);
 			virtual NoCryptoFA::InstructionMetadata* getMD(llvm::Instruction* ptr);
@@ -67,7 +66,7 @@ namespace llvm
 			virtual const char* getPassName() const {
 				return "CalcDFG";
 			}
-            bool shouldBeProtected(Instruction* ptr);
+			bool shouldBeProtected(Instruction* ptr);
 			bool functionMarked(Function* ptr);
 			static int getOperandSize(llvm::Instruction* ptr);
 			static int getOperandSize(llvm::Type* t);

@@ -59,38 +59,38 @@ namespace llvm
 
 		std::string getNodeAttributes(MyNodeType* Node,
 		                              const MyNodeType* Graph) {
-            if(Node->md){
-                switch(Node->md->origin){  //Sta diventando piu spaghettoso di quanto sia giusto. Refactor?
-                  case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
-                    if(Node->md->hasToBeProtected) {
-                        return "style=filled,color=\"#f458f4\"";
-                    } else if(Node->md->isAKeyOperation) {
-                        return "style=filled,color=\"#58faf4\"";
-                    }
-                    break;
-                  case NoCryptoFA::InstructionMetadata::CREATE_MASK:
-                          return "style=filled,color=\"#181af4\"";
-                    break;
-                case NoCryptoFA::InstructionMetadata::REMOVE_MASK:
-                        return "style=filled,color=\"#ff1a04\"";
-                  break;
-                default:
-                        return "style=filled,color=\"#18fa04\"";
-                  break;
-                }
-            }
+			if(Node->md) {
+				switch(Node->md->origin) { //Sta diventando piu spaghettoso di quanto sia giusto. Refactor?
+					case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
+						if(Node->md->hasToBeProtected) {
+							return "style=filled,color=\"#f458f4\"";
+						} else if(Node->md->isAKeyOperation) {
+							return "style=filled,color=\"#58faf4\"";
+						}
+						break;
+					case NoCryptoFA::InstructionMetadata::CREATE_MASK:
+						return "style=filled,color=\"#181af4\"";
+						break;
+					case NoCryptoFA::InstructionMetadata::REMOVE_MASK:
+						return "style=filled,color=\"#ff1a04\"";
+						break;
+					default:
+						return "style=filled,color=\"#18fa04\"";
+						break;
+				}
+			}
 			return "style=filled,color=\"#e0e0e0\"";
 		}
 		template<typename EdgeIter>
 		std::string getEdgeAttributes(const MyNodeType* Node, EdgeIter EI,
 		                              const MyNodeType* Graph) {
-            if(Node->md){
-                if(Node->md->hasToBeProtected) {
-                    return "color=\"#f458f4\"";
-                } else if(Node->md->isAKeyOperation) {
-                    return "color=\"#58faf4\"";
-                }
-            }
+			if(Node->md) {
+				if(Node->md->hasToBeProtected) {
+					return "color=\"#f458f4\"";
+				} else if(Node->md->isAKeyOperation) {
+					return "color=\"#58faf4\"";
+				}
+			}
 			return "color=\"#e0e0e0\"";
 		}
 	};
@@ -222,22 +222,29 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				} else {
 					boxcont << "Non ha incontrato il plaintext\n";
 				}
-                switch(md->origin){
-                case NoCryptoFA::InstructionMetadata::AND_MASKED:
-                    boxcont << "Origine istruzione: Mascheratura di un AND\n";break;
-                case NoCryptoFA::InstructionMetadata::CREATE_MASK:
-                    boxcont << "Origine istruzione: Inserimento maschera\n";break;
-                case NoCryptoFA::InstructionMetadata::SHIFT_MASKED:
-                    boxcont << "Origine istruzione: Mascheratura di uno shift\n";break;
-                case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
-                    boxcont << "Origine istruzione: Programma originale\n";break;
-                case NoCryptoFA::InstructionMetadata::REMOVE_MASK:
-                    boxcont << "Origine istruzione: Rimozione maschera\n";break;
-                    case NoCryptoFA::InstructionMetadata::XOR_MASKED:
-                    boxcont << "Origine istruzione: Mascheratura di uno XOR\n";break;
-                    case NoCryptoFA::InstructionMetadata::CAST_MASKED:
-                    boxcont << "Origine istruzione: Mascheratura di un CAST\n";break;
-                }
+				switch(md->origin) {
+					case NoCryptoFA::InstructionMetadata::AND_MASKED:
+						boxcont << "Origine istruzione: Mascheratura di un AND\n";
+						break;
+					case NoCryptoFA::InstructionMetadata::CREATE_MASK:
+						boxcont << "Origine istruzione: Inserimento maschera\n";
+						break;
+					case NoCryptoFA::InstructionMetadata::SHIFT_MASKED:
+						boxcont << "Origine istruzione: Mascheratura di uno shift\n";
+						break;
+					case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
+						boxcont << "Origine istruzione: Programma originale\n";
+						break;
+					case NoCryptoFA::InstructionMetadata::REMOVE_MASK:
+						boxcont << "Origine istruzione: Rimozione maschera\n";
+						break;
+					case NoCryptoFA::InstructionMetadata::XOR_MASKED:
+						boxcont << "Origine istruzione: Mascheratura di uno XOR\n";
+						break;
+					case NoCryptoFA::InstructionMetadata::CAST_MASKED:
+						boxcont << "Origine istruzione: Mascheratura di un CAST\n";
+						break;
+				}
 				boxcont << "Value size:" << md->pre.size() << "\n";
 				if(!i->getDebugLoc().isUnknown()) {
 					boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
@@ -288,7 +295,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 			}
 		}
 	}
-    return false;
+	return false;
 }
 
 

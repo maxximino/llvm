@@ -92,7 +92,7 @@ for(Instruction * p : endPoints) {
 	gettimeofday(&clk_end, NULL);
 	std::cerr << "Tempo visita pre+post: delta-sec" <<  clk_end.tv_sec - clk_start.tv_sec;
 	std::cerr << " delta-usec" <<  clk_end.tv_usec - clk_start.tv_usec << endl;
-    return false;
+	return false;
 }
 llvm::NoCryptoFA::InstructionMetadata* CalcDFG::getMD(llvm::Instruction* ptr)
 {
@@ -118,8 +118,8 @@ bitset<MAX_OUTBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr)
 		cerr << "Istruzione senza usi che non è una return nè una store nè una call... Segfaultiamo per far notare l'importanza del problema.." << endl;
 		int* ptr = 0;
 		*ptr = 1;
-    }
-    int outQty = getOperandSize(op->getType());
+	}
+	int outQty = getOperandSize(op->getType());
 	//  cerr << "latestPos " << outLatestPos << " outQty:" << outQty << endl;
 	bitset<MAX_OUTBITS> mybs;
 	mybs.reset();
@@ -141,8 +141,9 @@ int CalcDFG::getOperandSize(llvm::Type* t)
 	}
 	return t->getScalarSizeInBits(); //TODO: Gestire array e cose diverse da valori scalari e puntatori.
 }
-bool CalcDFG::shouldBeProtected(Instruction* ptr){
-    return NoCryptoFA::known[ptr]->hasToBeProtected;
+bool CalcDFG::shouldBeProtected(Instruction* ptr)
+{
+	return NoCryptoFA::known[ptr]->hasToBeProtected;
 }
 bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
 {

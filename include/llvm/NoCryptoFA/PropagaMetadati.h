@@ -11,10 +11,9 @@ namespace llvm
 			static char ID;
 
 		public:
-            PropagaMetadati() : llvm::FunctionPass(ID) {
-                initializePropagaMetadatiPass(*PassRegistry::getPassRegistry());
-
-            }
+			PropagaMetadati() : llvm::FunctionPass(ID) {
+				initializePropagaMetadatiPass(*PassRegistry::getPassRegistry());
+			}
 
 		public:
 			// This member function must implement the code of your pass.

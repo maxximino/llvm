@@ -18,44 +18,44 @@ namespace llvm
 	void initializeTaggedDataPass(PassRegistry& Registry);
 	namespace NoCryptoFA
 	{
-        struct InstructionMetadata;
-        extern std::map<llvm::Instruction*, llvm::NoCryptoFA::InstructionMetadata*> known;
+		struct InstructionMetadata;
+		extern std::map<llvm::Instruction*, llvm::NoCryptoFA::InstructionMetadata*> known;
 		struct InstructionMetadata {
-            enum InstructionSource{
-                ORIGINAL_PROGRAM,
-                CREATE_MASK,
-                XOR_MASKED,
-                AND_MASKED,
-                CAST_MASKED,
-                SHIFT_MASKED,
-                REMOVE_MASK
-            };
+			enum InstructionSource {
+			    ORIGINAL_PROGRAM,
+			    CREATE_MASK,
+			    XOR_MASKED,
+			    AND_MASKED,
+			    CAST_MASKED,
+			    SHIFT_MASKED,
+			    REMOVE_MASK
+			};
 			bool isAKeyOperation;
 			bool isAKeyStart;
-            bool hasToBeProtected;
-            bool hasBeenMasked;
-            bool hasMetPlaintext;
-            InstructionSource origin;
+			bool hasToBeProtected;
+			bool hasBeenMasked;
+			bool hasMetPlaintext;
+			InstructionSource origin;
 			std::vector<std::bitset<MAX_KEYBITS> > pre;
 			std::bitset<MAX_KEYBITS> own;
 			std::bitset<MAX_OUTBITS> post_sum;
 			std::bitset<MAX_OUTBITS> post_min;
 			Instruction* my_instruction;
-            Instruction* unmasked_value;
-            std::vector<Value*> MaskedValues;
+			Instruction* unmasked_value;
+			std::vector<Value*> MaskedValues;
 
-            InstructionMetadata(Instruction* ptr): pre(0), own(0), post_sum(0), post_min(0), MaskedValues(0) {
+			InstructionMetadata(Instruction* ptr): pre(0), own(0), post_sum(0), post_min(0), MaskedValues(0) {
 				isAKeyOperation = false;
 				isAKeyStart = false;
-                hasToBeProtected = false;
-                hasBeenMasked = false;
-                hasMetPlaintext = false;
+				hasToBeProtected = false;
+				hasBeenMasked = false;
+				hasMetPlaintext = false;
 				post_sum.reset();
 				post_min.set();
 				my_instruction = ptr;
-                unmasked_value=NULL;
-                known[ptr] = this;
-                origin = InstructionMetadata::ORIGINAL_PROGRAM;
+				unmasked_value = NULL;
+				known[ptr] = this;
+				origin = InstructionMetadata::ORIGINAL_PROGRAM;
 			}
 		};
 
@@ -67,10 +67,9 @@ namespace llvm
 		public:
 			static char ID;
 			TaggedData() : llvm::FunctionPass(ID) { }
-            TaggedData(const TaggedData& fp) : llvm::FunctionPass(fp.ID) {
-                initializeTaggedDataPass(*PassRegistry::getPassRegistry());
-
-            }
+			TaggedData(const TaggedData& fp) : llvm::FunctionPass(fp.ID) {
+				initializeTaggedDataPass(*PassRegistry::getPassRegistry());
+			}
 			virtual NoCryptoFA::InstructionMetadata* getMD(llvm::Instruction* ptr);
 
 			virtual bool runOnFunction(llvm::Function& Fun);
@@ -88,7 +87,7 @@ namespace llvm
 			std::set<Function*> markedfunctions;
 			void checkMeta(llvm::Instruction* ptr);
 			void infect(llvm::Instruction* ptr);
-            void infectPlain(llvm::Instruction* ptr);
+			void infectPlain(llvm::Instruction* ptr);
 			bool hasmd;
 	};
 	TaggedData* createTaggedDataPass();

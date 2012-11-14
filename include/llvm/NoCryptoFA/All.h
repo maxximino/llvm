@@ -22,7 +22,7 @@ namespace
 			(void) llvm::createTaggedDataPass();
 			(void) llvm::createDFGPrinterPass();
 			(void) llvm::createMaxTestPass();
-            (void) llvm::createInstructionReplacePass();
+			(void) llvm::createInstructionReplacePass();
 		}
 	} NCFAForcePassLinking; // Force link by creating a global definition.
 }

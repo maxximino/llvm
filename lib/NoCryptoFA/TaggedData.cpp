@@ -46,7 +46,7 @@ bool TaggedData::runOnFunction(llvm::Function& Fun)
 	if(hasmd) {
 		markedfunctions.insert(&Fun);
 	}
-    return false;
+	return false;
 }
 
 std::string readMetaMark(Instruction* ptr)
@@ -96,7 +96,7 @@ void TaggedData::infectPlain(llvm::Instruction* ptr)
 		md = NoCryptoFA::known[ptr];
 	} else {
 		md = new llvm::NoCryptoFA::InstructionMetadata(ptr);
-    }
+	}
 	if(!md->hasMetPlaintext) {
 		md->hasMetPlaintext = true;
 		for(llvm::Instruction::use_iterator i = ptr->use_begin(); i != ptr->use_end(); ++i) {

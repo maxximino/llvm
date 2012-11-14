@@ -10,7 +10,7 @@ namespace llvm
 	{
 		public:
 			std::string name;
-            NoCryptoFA::InstructionMetadata* md;
+			NoCryptoFA::InstructionMetadata* md;
 			std::set<MyNodeType*> children;
 			std::set<MyNodeType*> subnodes; //in sostituzione temporanea di un iteratore intelligente che visita tutti i sottonodi
 			static MyNodeType* rootnode;
@@ -21,17 +21,17 @@ namespace llvm
 
 
 	};
-    void initializeDFGPrinterPass(PassRegistry& Registry);
+	void initializeDFGPrinterPass(PassRegistry& Registry);
 
 	class DFGPrinter : public llvm::ModulePass
 	{
 		public:
 			static char ID;
-            DFGPrinter() : llvm::ModulePass(ID), instrnodemap() {
-                initializeDFGPrinterPass(*PassRegistry::getPassRegistry());
-
-                rootptr = new MyNodeType("root"); MyNodeType::rootnode = rootptr;
-            }
+			DFGPrinter() : llvm::ModulePass(ID), instrnodemap() {
+				initializeDFGPrinterPass(*PassRegistry::getPassRegistry());
+				rootptr = new MyNodeType("root");
+				MyNodeType::rootnode = rootptr;
+			}
 			virtual ~DFGPrinter() { delete rootptr;}
 			// This member function must implement the code of your pass.
 			virtual bool runOnModule(llvm::Module& M);
