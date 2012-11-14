@@ -58,8 +58,19 @@ struct MaskTraits<BinaryOperator> {
 				case Instruction::Xor: {
 						vector<Value*> op1 = MaskValue(ptr->getOperand(0), ptr);
 						vector<Value*> op2 = MaskValue(ptr->getOperand(1), ptr);
-						md->MaskedValues.push_back(ib.CreateXor(op1[0], op2[0]));
-						md->MaskedValues.push_back(ib.CreateXor(op1[1], op2[1]));
+						llvm::Function& randF = GetRandomFn(ptr->getParent()->getParent()->getParent());
+						llvm::Value* rand = ib.CreateCall(&randF);
+						Value* a0 = ib.CreateXor(op1[0], rand);
+						Value* a1 = ib.CreateXor(op1[1], rand);
+						Value* b0 = ib.CreateXor(op2[0], rand);
+						Value* b1 = ib.CreateXor(op2[1], rand);
+						md->MaskedValues.push_back(ib.CreateXor(a0, b0));
+						md->MaskedValues.push_back(ib.CreateXor(a1, b1));
+						BuildMetadata(rand, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
+						BuildMetadata(a0, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
+						BuildMetadata(a1, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
+						BuildMetadata(b0, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
+						BuildMetadata(b1, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
 						BuildMetadata(md->MaskedValues[0], ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
 						BuildMetadata(md->MaskedValues[1], ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
 						return true;
