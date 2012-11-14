@@ -24,7 +24,10 @@ namespace llvm
     char InstructionReplace::ID = 178;
 
 } // End anonymous namespace.
-
+void BuildMetadata(Value* _newInstruction, Instruction* oldInstruction,NoCryptoFA::InstructionMetadata::InstructionSource origin);
+vector<Value*> MaskValue(Value* ptr,Instruction* relativepos);
+llvm::Function& GetRandomFn(llvm::Module* Mod);
+#include "MaskTraits.h"
 void InstructionReplace::fixNextUses(Value* from, Value* to)
 {
     Instruction* ptr = cast<Instruction>(from);
@@ -158,108 +161,19 @@ void InstructionReplace::phase1(llvm::Module& M){
 
                 NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[i];
                 if(md->origin!=NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM) continue;
-                if(i->getOpcode() == Instruction::Xor){
-                    llvm::IRBuilder<> ib = llvm::IRBuilder<>(BB->getContext());
-                    ib.SetInsertPoint(i);
-                    vector<Value*> op1 =MaskValue(i->getOperand(0),i);
-                    vector<Value*> op2 =MaskValue(i->getOperand(1),i);
-                    md->MaskedValues.push_back(ib.CreateXor(op1[0],op2[0]));
-                    md->MaskedValues.push_back(ib.CreateXor(op1[1],op2[1]));
-                    annota(md->MaskedValues[0],"xor_mascherato");
-                    annota(md->MaskedValues[1],"xor_mascherato");
-                    BuildMetadata(md->MaskedValues[0],i,NoCryptoFA::InstructionMetadata::XOR_MASKED);
-                    BuildMetadata(md->MaskedValues[1],i,NoCryptoFA::InstructionMetadata::XOR_MASKED);
-                    deletionqueue.insert(i);
-                    md->hasBeenMasked=true;
-                }
-                else if(i->getOpcode() == Instruction::And){
-                    llvm::Function& rand = GetRandomFn(&M);
-                    llvm::IRBuilder<> ib = llvm::IRBuilder<>(BB->getContext());
-                    ib.SetInsertPoint(i);
-                    /* Applico la maschera
-                       a[0] = rand()
-                       a[1] = a XOR rand();
-                       b[0] = rand()
-                       b[1] = b XOR rand();
-                        */
-                    vector<Value*> op1 =MaskValue(i->getOperand(0),i);
-                    vector<Value*> op2 =MaskValue(i->getOperand(1),i);
-                    /*  x = rand()
-                        %1=a[0] AND b[1]
-                        %2=a[1] AND b[0]
-                        %3= x XOR %1
-                        y = %3 XOR %2
-                        %4=a[0] AND b[0]
-                        c[0] = %4 XOR x
-                        %5=a[1] AND b[1]
-                        c[1] = %5 XOR y
-                     */
-                    llvm::Value* x = ib.CreateCall(&rand);
-                    llvm::Value* t1 = ib.CreateAnd(op1[0],op2[1]);
-                    llvm::Value* t2 = ib.CreateAnd(op1[1],op2[0]);
-                    llvm::Value* t3 = ib.CreateXor(x,t1);
-                    llvm::Value* y = ib.CreateXor(t3,t2);
-                    llvm::Value* t4 = ib.CreateAnd(op1[0],op2[0]);
-                    llvm::Value* t5 = ib.CreateAnd(op1[1],op2[1]);
-                    md->MaskedValues.push_back(ib.CreateXor(t4,x));
-                    md->MaskedValues.push_back(ib.CreateXor(t5,y));
-                    annota(x,"and_mascherato-temp");
-                    annota(t1,"and_mascherato-temp");
-                    annota(t2,"and_mascherato-temp");
-                    annota(t3,"and_mascherato-temp");
-                    annota(t4,"and_mascherato-temp");
-                    annota(t5,"and_mascherato-temp");
-                    annota(y,"and_mascherato-temp");
-                    annota(md->MaskedValues[0],"and_mascherato");
-                    annota(md->MaskedValues[1],"and_mascherato");
-                    BuildMetadata(x,i,NoCryptoFA::InstructionMetadata::AND_MASKED);
-                    BuildMetadata(t1,i,NoCryptoFA::InstructionMetadata::AND_MASKED);
-                    BuildMetadata(t2,i,NoCryptoFA::InstructionMetadata::AND_MASKED);
-                    BuildMetadata(t3,i,NoCryptoFA::InstructionMetadata::AND_MASKED);
-                    BuildMetadata(y,i,NoCryptoFA::InstructionMetadata::AND_MASKED);
-                    BuildMetadata(t4,i,NoCryptoFA::InstructionMetadata::AND_MASKED);
-                    BuildMetadata(t5,i,NoCryptoFA::InstructionMetadata::AND_MASKED);
-                    BuildMetadata(md->MaskedValues[0],i,NoCryptoFA::InstructionMetadata::AND_MASKED);
-                    BuildMetadata(md->MaskedValues[1],i,NoCryptoFA::InstructionMetadata::AND_MASKED);
-                    md->hasBeenMasked=true;
-                    deletionqueue.insert(i);
-                    /* tolgo la maschera
-                     * c = c[0] XOR c[1]
-                    llvm::Value* c = ib.CreateXor(c0,c1);
-                    i->replaceAllUsesWith(c);
-                    tbd = i;*/
-                }
-                else if(i->getOpcode() == Instruction::ZExt){
-                    CastInst* ci = cast<CastInst>(i);
-                    llvm::IRBuilder<> ib = llvm::IRBuilder<>(BB->getContext());
-                    ib.SetInsertPoint(i);
-                    vector<Value*> op =MaskValue(i->getOperand(0),i);
-                    md->MaskedValues.push_back(ib.CreateZExt(op[0],ci->getDestTy()));
-                    md->MaskedValues.push_back(ib.CreateZExt(op[1],ci->getDestTy()));
-                    annota(md->MaskedValues[0],"zext_mask");
-                    annota(md->MaskedValues[1],"zext_mask");
-                    BuildMetadata(md->MaskedValues[0],i,NoCryptoFA::InstructionMetadata::ZEXT_MASKED);
-                    BuildMetadata(md->MaskedValues[1],i,NoCryptoFA::InstructionMetadata::ZEXT_MASKED);
-                    deletionqueue.insert(i);
-                    md->hasBeenMasked=true;
-                }
-                else if(i->getOpcode() == Instruction::LShr){
-                    llvm::IRBuilder<> ib = llvm::IRBuilder<>(BB->getContext());
-                    ib.SetInsertPoint(i);
-                    vector<Value*> op =MaskValue(i->getOperand(0),i);
+                bool masked=false;
+                #define CHECK_TYPE(type) else if(isa<type>(i)) masked=MaskTraits<type>::replaceWithMasked(cast<type>(i),md)
+                        if(0) {}
+                        CHECK_TYPE(BinaryOperator);
+                        CHECK_TYPE(CastInst);
+                        else { masked=MaskTraits<Instruction>::replaceWithMasked(i, md); }
+                #undef CHECK_TYPE
 
-                    md->MaskedValues.push_back(ib.CreateLShr(op[0],i->getOperand(1)));
-                    md->MaskedValues.push_back(ib.CreateLShr(op[1],i->getOperand(1)));
-                    annota(md->MaskedValues[0],"lshr_mask");
-                    annota(md->MaskedValues[1],"lshr_mask");
-                    BuildMetadata(md->MaskedValues[0],i,NoCryptoFA::InstructionMetadata::LSHR_MASKED);
-                    BuildMetadata(md->MaskedValues[1],i,NoCryptoFA::InstructionMetadata::LSHR_MASKED);
-                    deletionqueue.insert(i);
-                    md->hasBeenMasked=true;
-                }
-                else{
-                    cerr << "Missing opcode mask:" << i->getOpcodeName() << endl;
-                }
+                        if(masked){
+                            deletionqueue.insert(i);
+                            md->hasBeenMasked=true;
+
+                        }
             }
         }
     }
@@ -312,12 +226,11 @@ void InstructionReplace::phase3(llvm::Module& M){
             if(i->use_empty()){
                 delcnt++;
                 i->eraseFromParent();
-             //   annota(i,"to_be_deleted");
                 deletionqueue.erase(i);
             }
         }
-        //assert(delcnt>0 && "Altrimenti resto in un loop infinito!");
-        if(delcnt==0) break; //Vediamo dov'è arrivato, almeno.
+        assert(delcnt>0 && "Altrimenti resto in un loop infinito!");
+        //if(delcnt==0) break; //Vediamo dov'è arrivato, almeno.
     }
 }
 

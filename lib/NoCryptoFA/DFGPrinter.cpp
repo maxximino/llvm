@@ -222,6 +222,22 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				} else {
 					boxcont << "Non ha incontrato il plaintext\n";
 				}
+                switch(md->origin){
+                case NoCryptoFA::InstructionMetadata::AND_MASKED:
+                    boxcont << "Origine istruzione: Mascheratura di un AND\n";break;
+                case NoCryptoFA::InstructionMetadata::CREATE_MASK:
+                    boxcont << "Origine istruzione: Inserimento maschera\n";break;
+                case NoCryptoFA::InstructionMetadata::SHIFT_MASKED:
+                    boxcont << "Origine istruzione: Mascheratura di uno shift\n";break;
+                case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
+                    boxcont << "Origine istruzione: Programma originale\n";break;
+                case NoCryptoFA::InstructionMetadata::REMOVE_MASK:
+                    boxcont << "Origine istruzione: Rimozione maschera\n";break;
+                    case NoCryptoFA::InstructionMetadata::XOR_MASKED:
+                    boxcont << "Origine istruzione: Mascheratura di uno XOR\n";break;
+                    case NoCryptoFA::InstructionMetadata::CAST_MASKED:
+                    boxcont << "Origine istruzione: Mascheratura di un CAST\n";break;
+                }
 				boxcont << "Value size:" << md->pre.size() << "\n";
 				if(!i->getDebugLoc().isUnknown()) {
 					boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";

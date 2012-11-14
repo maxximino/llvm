@@ -26,8 +26,8 @@ namespace llvm
                 CREATE_MASK,
                 XOR_MASKED,
                 AND_MASKED,
-                ZEXT_MASKED,
-                LSHR_MASKED,
+                CAST_MASKED,
+                SHIFT_MASKED,
                 REMOVE_MASK
             };
 			bool isAKeyOperation;
