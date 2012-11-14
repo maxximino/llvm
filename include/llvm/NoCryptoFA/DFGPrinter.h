@@ -16,6 +16,7 @@ namespace llvm
 			static MyNodeType* rootnode;
 			MyNodeType(std::string n): children(), subnodes() {
 				name = n;
+                md=NULL;
 			}
 			void addChildren(MyNodeType* nuovo);
 
