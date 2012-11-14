@@ -211,7 +211,7 @@ struct CalcPreTraits<BinaryOperator> {
 				case Instruction::Shl:
 				case Instruction::LShr:
 				case Instruction::AShr:
-					//orrido, ma vediamo se funziona
+                    //orrido, ma funziona
 					md->hasToBeProtected = NoCryptoFA::known[cast<Instruction>(ptr->getOperand(0))]->hasToBeProtected;
 					return;
 				case Instruction::And:

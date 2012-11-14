@@ -60,10 +60,23 @@ namespace llvm
 		std::string getNodeAttributes(MyNodeType* Node,
 		                              const MyNodeType* Graph) {
             if(Node->md){
-                if(Node->md->hasToBeProtected) {
-                    return "style=filled,color=\"#f458f4\"";
-                } else if(Node->md->isAKeyOperation) {
-                    return "style=filled,color=\"#58faf4\"";
+                switch(Node->md->origin){  //Sta diventando piu spaghettoso di quanto sia giusto. Refactor?
+                  case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
+                    if(Node->md->hasToBeProtected) {
+                        return "style=filled,color=\"#f458f4\"";
+                    } else if(Node->md->isAKeyOperation) {
+                        return "style=filled,color=\"#58faf4\"";
+                    }
+                    break;
+                  case NoCryptoFA::InstructionMetadata::CREATE_MASK:
+                          return "style=filled,color=\"#181af4\"";
+                    break;
+                case NoCryptoFA::InstructionMetadata::REMOVE_MASK:
+                        return "style=filled,color=\"#ff1a04\"";
+                  break;
+                default:
+                        return "style=filled,color=\"#18fa04\"";
+                  break;
                 }
             }
 			return "style=filled,color=\"#e0e0e0\"";

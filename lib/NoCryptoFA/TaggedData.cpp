@@ -67,7 +67,6 @@ void TaggedData::infect(llvm::Instruction* ptr)
 		md = NoCryptoFA::known[ptr];
 	} else {
 		md = new llvm::NoCryptoFA::InstructionMetadata(ptr);
-		NoCryptoFA::known[ptr] = md;
 	}
 	if(!md->isAKeyOperation) {
 		md->isAKeyOperation = true;
@@ -97,8 +96,7 @@ void TaggedData::infectPlain(llvm::Instruction* ptr)
 		md = NoCryptoFA::known[ptr];
 	} else {
 		md = new llvm::NoCryptoFA::InstructionMetadata(ptr);
-		NoCryptoFA::known[ptr] = md;
-	}
+    }
 	if(!md->hasMetPlaintext) {
 		md->hasMetPlaintext = true;
 		for(llvm::Instruction::use_iterator i = ptr->use_begin(); i != ptr->use_end(); ++i) {
@@ -125,7 +123,6 @@ void TaggedData::checkMeta(llvm::Instruction* ptr)
 		infect(ptr);
 	} else if(NoCryptoFA::known.find(ptr) == NoCryptoFA::known.end()) {
 		llvm::NoCryptoFA::InstructionMetadata* md = new llvm::NoCryptoFA::InstructionMetadata(ptr);
-		NoCryptoFA::known[ptr] = md;
 		md->isAKeyOperation = false;
 	}
 }

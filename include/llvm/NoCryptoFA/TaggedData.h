@@ -18,27 +18,47 @@ namespace llvm
 	void initializeTaggedDataPass(PassRegistry& Registry);
 	namespace NoCryptoFA
 	{
+        struct InstructionMetadata;
+        extern std::map<llvm::Instruction*, llvm::NoCryptoFA::InstructionMetadata*> known;
 		struct InstructionMetadata {
+            enum InstructionSource{
+                ORIGINAL_PROGRAM,
+                CREATE_MASK,
+                XOR_MASKED,
+                AND_MASKED,
+                ZEXT_MASKED,
+                LSHR_MASKED,
+                REMOVE_MASK
+            };
 			bool isAKeyOperation;
 			bool isAKeyStart;
             bool hasToBeProtected;
+            bool hasBeenMasked;
             bool hasMetPlaintext;
+            InstructionSource origin;
 			std::vector<std::bitset<MAX_KEYBITS> > pre;
 			std::bitset<MAX_KEYBITS> own;
 			std::bitset<MAX_OUTBITS> post_sum;
 			std::bitset<MAX_OUTBITS> post_min;
 			Instruction* my_instruction;
-			InstructionMetadata(Instruction* ptr): pre(0), own(0), post_sum(0), post_min(0) {
+            Instruction* unmasked_value;
+            std::vector<Value*> MaskedValues;
+
+            InstructionMetadata(Instruction* ptr): pre(0), own(0), post_sum(0), post_min(0), MaskedValues(0) {
 				isAKeyOperation = false;
 				isAKeyStart = false;
                 hasToBeProtected = false;
+                hasBeenMasked = false;
                 hasMetPlaintext = false;
 				post_sum.reset();
 				post_min.set();
 				my_instruction = ptr;
+                unmasked_value=NULL;
+                known[ptr] = this;
+                origin = InstructionMetadata::ORIGINAL_PROGRAM;
 			}
 		};
-		extern std::map<llvm::Instruction*, llvm::NoCryptoFA::InstructionMetadata*> known;
+
 	}
 
 

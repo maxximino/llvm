@@ -9,7 +9,7 @@ class InstructionReplace : public llvm::ModulePass
 		public:
 			static char ID;
 
-            InstructionReplace() : llvm::ModulePass(ID) {
+            InstructionReplace() : llvm::ModulePass(ID),deletionqueue() {
                 initializeInstructionReplacePass(*PassRegistry::getPassRegistry());
 
             }
@@ -23,7 +23,13 @@ class InstructionReplace : public llvm::ModulePass
 			}
 
 		private:
+            std::set<Instruction*> deletionqueue;
             void fixNextUses(Value* from, Value* to);
+            void phase1(llvm::Module& M);
+            void phase2(llvm::Module& M);
+            void phase3(llvm::Module& M);
+            void Unmask(Instruction* ptr);
+
 	};
 
     InstructionReplace* createInstructionReplacePass();
