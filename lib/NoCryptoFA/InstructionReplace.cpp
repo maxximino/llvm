@@ -126,10 +126,10 @@ vector<Value*> MaskValue(Value* ptr,Instruction* relativepos){
         */
     llvm::Value* a0 = ib.CreateCall(&rand);
     annota(a0,"ins_maschera");
-    BuildMetadata(a0,NULL,NoCryptoFA::InstructionMetadata::CREATE_MASK);
+    BuildMetadata(a0,dyn_cast<Instruction>(ptr),NoCryptoFA::InstructionMetadata::CREATE_MASK);
     llvm::Value* a1 = ib.CreateXor(a0,ptr);
     annota(a1,"ins_maschera");
-    BuildMetadata(a1,NULL,NoCryptoFA::InstructionMetadata::CREATE_MASK);
+    BuildMetadata(a1,dyn_cast<Instruction>(ptr),NoCryptoFA::InstructionMetadata::CREATE_MASK);
     if(isa<Instruction>(ptr)){
         NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[cast<Instruction>(ptr)];
 
@@ -266,7 +266,7 @@ void InstructionReplace::phase1(llvm::Module& M){
 
 }
 void InstructionReplace::Unmask(Instruction* ptr){
-    NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[cast<Instruction>(ptr)];
+    NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
     if(md->unmasked_value != NULL) return;
 
     llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
@@ -274,7 +274,7 @@ void InstructionReplace::Unmask(Instruction* ptr){
 
     llvm::Value* v = ib.CreateXor(md->MaskedValues[0],md->MaskedValues[1]);
     annota(v,"rimozi_maschera");
-    BuildMetadata(v,NULL,NoCryptoFA::InstructionMetadata::REMOVE_MASK);
+    BuildMetadata(v,ptr,NoCryptoFA::InstructionMetadata::REMOVE_MASK);
     md->unmasked_value = cast<Instruction>(v);
     //fixNextUses(ptr,v);
     llvm::raw_fd_ostream rerr(2,false);
@@ -289,9 +289,7 @@ void InstructionReplace::phase2(llvm::Module& M){
             FE = F->end();
             BB != FE;
             ++BB) {
-            CalcDFG& cd = getAnalysis<CalcDFG>(*F);
             for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
-                if(!cd.shouldBeProtected(i)) continue;
                 NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[i];
                 if(!md->hasBeenMasked) continue;
                 for(Instruction::use_iterator u = i->use_begin(); u != i->use_end(); ++u){
