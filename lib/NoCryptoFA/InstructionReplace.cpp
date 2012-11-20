@@ -1,3 +1,4 @@
+#include <sstream>
 #include <iostream>
 #include "llvm/Constants.h"
 #include "llvm/Instructions.h"
@@ -26,7 +27,8 @@ namespace llvm
 } // End anonymous namespace.
 void BuildMetadata(Value* _newInstruction, Instruction* oldInstruction, NoCryptoFA::InstructionMetadata::InstructionSource origin);
 vector<Value*> MaskValue(Value* ptr, Instruction* relativepos);
-llvm::Function& GetRandomFn(llvm::Module* Mod);
+llvm::Function& GetRandomFn(llvm::Module* Mod, int size);
+void annota(Value* cosa, std::string commento);
 #include "MaskTraits.h"
 void InstructionReplace::fixNextUses(Value* from, Value* to)
 {
@@ -53,26 +55,34 @@ llvm::Function& GetRand(llvm::Module* Mod)
 	return *llvm::cast<llvm::Function>(FunSym);
 }
 
-llvm::Function& GetRandomFn(llvm::Module* Mod)
+llvm::Function& GetRandomFn(llvm::Module* Mod, int size)
 {
-	llvm::Function* Fun = Mod->getFunction("__getrandom");
+	stringstream ss("");
+	ss << "__getrandom" << size;
+	llvm::Function* Fun = Mod->getFunction(ss.str());
 	if(Fun && !Fun->isDeclaration()) {
 		return *Fun;
 	}
 	llvm::LLVMContext& Ctx = Mod->getContext();
 	llvm::Constant* FunSym;
-	FunSym = Mod->getOrInsertFunction("__getrandom",
-	                                  llvm::Type::getInt32Ty(Ctx),
+	FunSym = Mod->getOrInsertFunction(ss.str(),
+	                                  llvm::Type::getIntNTy(Ctx, size),
 	                                  NULL);
 	Fun = llvm::cast<llvm::Function>(FunSym);
 	llvm::BasicBlock* Entry = llvm::BasicBlock::Create(Ctx, "entry", Fun);
-	llvm::Function& rand = GetRand(Mod);
-	CallInst* rndval = llvm::CallInst::Create(&rand, "", Entry);
-	/*  llvm::IRBuilder<> ib = llvm::IRBuilder<>(Entry->getContext());
-	  ib.SetInsertPoint(Entry);
+	//  llvm::Function& rand = GetRand(Mod);
+	llvm::IRBuilder<> ib = llvm::IRBuilder<>(Entry->getContext());
+	ib.SetInsertPoint(Entry);
+	/*  CallInst* rndval = ib.CreateCall(&rand);
+	  Value* retval=rndval;
+	  if(size < 32){
+	      retval = ib.CreateTrunc(rndval,llvm::Type::getIntNTy(Ctx,size));
+	  }*/
+	/*
 	  Value* addr = ib.CreateIntToPtr(ConstantInt::get(Type::getInt32Ty(Ctx),12345,false),Type::getInt32PtrTy(Ctx));
 	  LoadInst* rndval = ib.CreateLoad(addr,true);*/
-	llvm::ReturnInst::Create(Ctx, rndval, Entry);
+	//llvm::ReturnInst::Create(Ctx, retval, Entry);
+	llvm::ReturnInst::Create(Ctx, ConstantInt::get(Type::getIntNTy(Ctx, size), 4, false) , Entry);
 	return *Fun;
 }
 void annota(Value* cosa, std::string commento)  // roba da primo debug, niente di serio. Destinato a sparire.
@@ -123,7 +133,8 @@ vector<Value*> MaskValue(Value* ptr, Instruction* relativepos)
 		relativepos = cast<Instruction>(ptr);
 		after = true;
 	}
-	llvm::Function& rand = GetRandomFn(relativepos->getParent()->getParent()->getParent());
+	int size = ptr->getType()->getScalarSizeInBits();
+	llvm::Function& rand = GetRandomFn(relativepos->getParent()->getParent()->getParent(), size);
 	llvm::IRBuilder<> ib = llvm::IRBuilder<>(relativepos->getContext());
 	SetInsertionPoint(after, ib, relativepos);
 	/* Applico la maschera
@@ -166,6 +177,8 @@ void InstructionReplace::phase1(llvm::Module& M)
 				if(0) {}
 				CHECK_TYPE(BinaryOperator);
 				CHECK_TYPE(CastInst);
+				CHECK_TYPE(GetElementPtrInst);
+				CHECK_TYPE(LoadInst);
 				else { masked = MaskTraits<Instruction>::replaceWithMasked(i, md); }
 #undef CHECK_TYPE
 				if(masked) {
@@ -226,8 +239,8 @@ void InstructionReplace::phase3(llvm::Module& M)
 				deletionqueue.erase(i);
 			}
 		}
-		assert(delcnt > 0 && "Altrimenti resto in un loop infinito!");
-		//if(delcnt==0) break; //Vediamo dov'è arrivato, almeno.
+		//assert(delcnt > 0 && "Altrimenti resto in un loop infinito!");
+		if(delcnt == 0) { cerr << "Some unmasked instructions survived :( " << endl;  break;}
 	}
 }
 
@@ -276,4 +289,5 @@ INITIALIZE_PASS_END(InstructionReplace,
                     "Mask instructions",
                     false,
                     false)
+
 

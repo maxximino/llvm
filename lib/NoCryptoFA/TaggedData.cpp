@@ -49,7 +49,8 @@ bool TaggedData::runOnFunction(llvm::Function& Fun)
 	return false;
 }
 
-std::string readMetaMark(Instruction* ptr)
+
+static std::string readMetaMark(Instruction* ptr)
 {
 	MDNode* m = ptr->getMetadata("MetaMark");
 	if(m != NULL) {
@@ -59,15 +60,27 @@ std::string readMetaMark(Instruction* ptr)
 	}
 	return "";
 }
-void TaggedData::infect(llvm::Instruction* ptr)
+
+static bool hasMetaMark(Instruction* ptr, std::string mark)
+{
+	string marks = readMetaMark(ptr);
+	return (marks.find(mark) != marks.npos);
+}
+
+llvm::NoCryptoFA::InstructionMetadata* getNewMD(llvm::Instruction* ptr)
 {
 	llvm::NoCryptoFA::InstructionMetadata* md;
-	hasmd = true;
 	if(NoCryptoFA::known.find(ptr) != NoCryptoFA::known.end()) {
 		md = NoCryptoFA::known[ptr];
 	} else {
 		md = new llvm::NoCryptoFA::InstructionMetadata(ptr);
 	}
+	return md;
+}
+void TaggedData::infect(llvm::Instruction* ptr)
+{
+	llvm::NoCryptoFA::InstructionMetadata* md = getNewMD(ptr);
+	hasmd = true;
 	if(!md->isAKeyOperation) {
 		md->isAKeyOperation = true;
 		for(llvm::Instruction::use_iterator i = ptr->use_begin(); i != ptr->use_end(); ++i) {
@@ -88,15 +101,11 @@ void TaggedData::infect(llvm::Instruction* ptr)
 		}
 	}
 }
+
 void TaggedData::infectPlain(llvm::Instruction* ptr)
 {
-	llvm::NoCryptoFA::InstructionMetadata* md;
+	llvm::NoCryptoFA::InstructionMetadata* md = getNewMD(ptr);
 	hasmd = true;
-	if(NoCryptoFA::known.find(ptr) != NoCryptoFA::known.end()) {
-		md = NoCryptoFA::known[ptr];
-	} else {
-		md = new llvm::NoCryptoFA::InstructionMetadata(ptr);
-	}
 	if(!md->hasMetPlaintext) {
 		md->hasMetPlaintext = true;
 		for(llvm::Instruction::use_iterator i = ptr->use_begin(); i != ptr->use_end(); ++i) {
@@ -106,7 +115,25 @@ void TaggedData::infectPlain(llvm::Instruction* ptr)
 		}
 	}
 }
-
+void TaggedData::infectSbox(llvm::Instruction* ptr)
+{
+	llvm::NoCryptoFA::InstructionMetadata* md = getNewMD(ptr);
+	if(md->isSbox) { return; }
+	md->isSbox = true;
+	hasmd = true;
+	for(llvm::Instruction::op_iterator i = ptr->op_begin(); i != ptr->op_end(); ++i) {
+		if (GetElementPtrInst* Inst = dyn_cast<GetElementPtrInst>(*i)) {
+			infectSbox(Inst);
+		}
+	}
+	for(llvm::Instruction::use_iterator i = ptr->use_begin(); i != ptr->use_end(); ++i) {
+		if (Instruction* Inst = dyn_cast<Instruction>(*i)) {
+			if(isa<GetElementPtrInst>(Inst) || isa<LoadInst>(Inst)) {
+				infectSbox(Inst);
+			}
+		}
+	}
+}
 llvm::NoCryptoFA::InstructionMetadata* TaggedData::getMD(llvm::Instruction* ptr)
 {
 	return NoCryptoFA::known[ptr];
@@ -114,12 +141,15 @@ llvm::NoCryptoFA::InstructionMetadata* TaggedData::getMD(llvm::Instruction* ptr)
 
 void TaggedData::checkMeta(llvm::Instruction* ptr)
 {
-	if( !std::string("plain").compare(readMetaMark(ptr))) {
+	if(hasMetaMark(ptr, "plain")) {
 		infectPlain(ptr);
 	}
-	if( !std::string("chiave").compare(readMetaMark(ptr))) {
+	if(hasMetaMark(ptr, "sbox")) {
+		infectSbox(ptr);
+	}
+	if(hasMetaMark(ptr, "chiave")) {
 		infect(ptr);
-	} else if( !std::string("OPchiave").compare(readMetaMark(ptr))) {
+	} else if( hasMetaMark(ptr, "OPchiave")) {
 		infect(ptr);
 	} else if(NoCryptoFA::known.find(ptr) == NoCryptoFA::known.end()) {
 		llvm::NoCryptoFA::InstructionMetadata* md = new llvm::NoCryptoFA::InstructionMetadata(ptr);

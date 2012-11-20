@@ -28,10 +28,12 @@ namespace llvm
 			    AND_MASKED,
 			    CAST_MASKED,
 			    SHIFT_MASKED,
+			    SBOX_MASKED,
 			    REMOVE_MASK
 			};
 			bool isAKeyOperation;
 			bool isAKeyStart;
+			bool isSbox;
 			bool hasToBeProtected;
 			bool hasBeenMasked;
 			bool hasMetPlaintext;
@@ -47,6 +49,7 @@ namespace llvm
 			InstructionMetadata(Instruction* ptr): pre(0), own(0), post_sum(0), post_min(0), MaskedValues(0) {
 				isAKeyOperation = false;
 				isAKeyStart = false;
+				isSbox = false;
 				hasToBeProtected = false;
 				hasBeenMasked = false;
 				hasMetPlaintext = false;
@@ -88,6 +91,7 @@ namespace llvm
 			void checkMeta(llvm::Instruction* ptr);
 			void infect(llvm::Instruction* ptr);
 			void infectPlain(llvm::Instruction* ptr);
+			void infectSbox(llvm::Instruction* ptr);
 			bool hasmd;
 	};
 	TaggedData* createTaggedDataPass();

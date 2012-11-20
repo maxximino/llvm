@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include "llvm/Constants.h"
 #include "llvm/Instructions.h"
 #include "llvm/Instruction.h"
@@ -40,6 +41,32 @@ void PropagaMetadati::registerPass(PassManagerBuilder& pm)
 	pm.addExtension(pm.EP_EarlyAsPossible, addPropagaMetadatiPass);
 	pm.addGlobalExtension(pm.EP_OptimizerLast, addPropagaMetadatiPass);
 }
+
+static std::string readMetaMark(Instruction* ptr)
+{
+	MDNode* m = ptr->getMetadata("MetaMark");
+	if(m != NULL) {
+		if(isa<MDString>(m->getOperand(0))) {
+			return cast<MDString>(m->getOperand(0))->getString().str();
+		}
+	}
+	return "";
+}
+
+static bool hasMetaMark(Instruction* ptr, std::string mark)
+{
+	string marks = readMetaMark(ptr);
+	return (marks.find(mark) != marks.npos);
+}
+static void addMetaMark(Instruction* ptr, std::string mark)
+{
+	if(hasMetaMark(ptr, mark)) { return; }
+	string marks = readMetaMark(ptr);
+	stringstream ss("");
+	ss << marks << " " << mark;
+	MDString* rec = MDString::get(ptr->getContext(), ss.str());
+	ptr->setMetadata("MetaMark", MDNode::get(ptr->getContext(), ArrayRef<Value*>(rec)));
+}
 bool PropagaMetadati::runOnFunction(llvm::Function& F)
 {
 	llvm::raw_fd_ostream fd(2, false);
@@ -55,12 +82,13 @@ bool PropagaMetadati::runOnFunction(llvm::Function& F)
 				latest_status = i;
 			}
 			if(md->isAKeyOperation && !md->isAKeyStart) {
-				MDString* rec = MDString::get(BB->getContext(), "OPchiave");
-				i->setMetadata("MetaMark", MDNode::get(BB->getContext(), ArrayRef<Value*>(rec)));
+				addMetaMark(i, "OPchiave");
+			}
+			if(md->isSbox) {
+				addMetaMark(i, "sbox");
 			}
 			if(md->hasMetPlaintext) {
-				MDString* rec = MDString::get(BB->getContext(), "plain");
-				i->setMetadata("MetaMark", MDNode::get(BB->getContext(), ArrayRef<Value*>(rec)));
+				addMetaMark(i, "plain");
 			}
 			/*if(md->isAKeyOperation  && isa<llvm::StoreInst>(i)) {
 			    for(auto o = i->op_begin();o != i->op_end(); o++ ){
