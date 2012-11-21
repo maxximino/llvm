@@ -93,8 +93,8 @@ struct MaskTraits<BinaryOperator> {
 				case Instruction::Shl:
 					if(isa<ConstantInt>(ptr->getOperand(1))) {
 						vector<Value*> op = MaskValue(ptr->getOperand(0), ptr);
-						md->MaskedValues.push_back(ib.CreateLShr(op[0], ptr->getOperand(1)));
-						md->MaskedValues.push_back(ib.CreateLShr(op[1], ptr->getOperand(1)));
+						md->MaskedValues.push_back(ib.CreateBinOp(ptr->getOpcode(), op[0], ptr->getOperand(1)));
+						md->MaskedValues.push_back(ib.CreateBinOp(ptr->getOpcode(), op[1], ptr->getOperand(1)));
 						BuildMetadata(md->MaskedValues[0], ptr, NoCryptoFA::InstructionMetadata::SHIFT_MASKED);
 						BuildMetadata(md->MaskedValues[1], ptr, NoCryptoFA::InstructionMetadata::SHIFT_MASKED);
 						return true;
