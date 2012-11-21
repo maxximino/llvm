@@ -14,7 +14,7 @@ static void Calc_Pre_BitwiseOr(bool& changed, T* ptr, NoCryptoFA::InstructionMet
 				}
 			}
 		}
-	}
+    }
 }
 template<typename T>
 static void Calc_Pre_BiggestSum(bool& changed, T* ptr, NoCryptoFA::InstructionMetadata* md)
@@ -155,6 +155,17 @@ struct CalcPreTraits {
 		}
 };
 
+template<>
+struct CalcPreTraits<SelectInst> {
+    public:
+        static void calc(bool& changed, SelectInst* ptr, NoCryptoFA::InstructionMetadata* md) {
+            Calc_Pre_BitwiseOr(changed, ptr, md);
+        }
+        static void needsMasking(SelectInst* ptr, NoCryptoFA::InstructionMetadata* md) {
+            usualMaskingLogic(ptr, md);
+        }
+
+};
 
 template<>
 struct CalcPreTraits<GetElementPtrInst> {

@@ -29,7 +29,8 @@ namespace llvm
 			    CAST_MASKED,
 			    SHIFT_MASKED,
 			    SBOX_MASKED,
-			    REMOVE_MASK
+                SELECT_MASKED,
+                REMOVE_MASK
 			};
 			bool isAKeyOperation;
 			bool isAKeyStart;

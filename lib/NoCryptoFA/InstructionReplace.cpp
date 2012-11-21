@@ -179,6 +179,7 @@ void InstructionReplace::phase1(llvm::Module& M)
 				CHECK_TYPE(CastInst);
 				CHECK_TYPE(GetElementPtrInst);
 				CHECK_TYPE(LoadInst);
+          //      CHECK_TYPE(SelectInst);
 				else { masked = MaskTraits<Instruction>::replaceWithMasked(i, md); }
 #undef CHECK_TYPE
 				if(masked) {

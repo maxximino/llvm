@@ -247,7 +247,10 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 					case NoCryptoFA::InstructionMetadata::SBOX_MASKED:
 						boxcont << "Origine istruzione: Mascheratura di un lookup ad una SBOX\n";
 						break;
-				}
+                    case NoCryptoFA::InstructionMetadata::SELECT_MASKED:
+                        boxcont << "Origine istruzione: Mascheratura di una SELECT\n";
+                        break;
+                }
 				boxcont << "Value size:" << md->pre.size() << "\n";
 				if(!i->getDebugLoc().isUnknown()) {
 					boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";

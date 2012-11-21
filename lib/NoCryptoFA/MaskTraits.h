@@ -257,7 +257,7 @@ struct MaskTraits<GetElementPtrInst> {
 			ib_fo.CreateStore(rndval, outmask1);
 			ib_fo.CreateStore(retval, outmask2);
 			ib_fo.CreateRetVoid();
-			return *Fun;
+            return *Fun;
 		}
 
 };
@@ -274,4 +274,18 @@ struct MaskTraits<LoadInst> {
 		}
 };
 
-
+template <>
+struct MaskTraits<SelectInst> {
+    public:
+        static bool replaceWithMasked(SelectInst* ptr, NoCryptoFA::InstructionMetadata* md) {
+            llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
+            ib.SetInsertPoint(ptr);
+            vector<Value*> vTrue = MaskValue(ptr->getTrueValue(), ptr);
+            vector<Value*> vFalse = MaskValue(ptr->getFalseValue(), ptr);
+            md->MaskedValues.push_back(ib.CreateSelect(ptr->getCondition(),vTrue[0],vFalse[0]));
+            md->MaskedValues.push_back(ib.CreateSelect(ptr->getCondition(),vTrue[1],vFalse[1]));
+            BuildMetadata(md->MaskedValues[0], ptr, NoCryptoFA::InstructionMetadata::SELECT_MASKED);
+            BuildMetadata(md->MaskedValues[1], ptr, NoCryptoFA::InstructionMetadata::SELECT_MASKED);
+            return true;
+        }
+};

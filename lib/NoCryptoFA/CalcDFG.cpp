@@ -227,6 +227,7 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
 	CHECK_TYPE(BinaryOperator);
 	CHECK_TYPE(CastInst);
 	CHECK_TYPE(GetElementPtrInst);
+    CHECK_TYPE(SelectInst);
 	else { CalcPreTraits<Instruction>::calc(changed, ptr, md); }
 #undef CHECK_TYPE
 	if(changed || md->own.any()) {
@@ -235,6 +236,7 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
 		CHECK_TYPE(BinaryOperator);
 		CHECK_TYPE(CastInst);
 		CHECK_TYPE(GetElementPtrInst);
+        CHECK_TYPE(SelectInst);
 		else { CalcPreTraits<Instruction>::needsMasking(ptr, md); }
 #undef CHECK_TYPE
 		if(!ptr->use_empty()) {
