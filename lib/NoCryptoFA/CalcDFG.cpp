@@ -24,6 +24,7 @@ void set_if_changed(bool& changed, bitset<SIZE>* var, bitset<SIZE> newvalue)
 	changed = true;
 	(*var) = newvalue;
 }
+void checkNeedsMasking(Instruction* ptr,NoCryptoFA::InstructionMetadata* md);
 //#define set_if_changed(changed,var,newvalue) if(var!=(newvalue)){changed=true,var=newvalue;}
 #include "InstrTraits.h"
 
@@ -143,7 +144,8 @@ int CalcDFG::getOperandSize(llvm::Type* t)
 }
 bool CalcDFG::shouldBeProtected(Instruction* ptr)
 {
-	return NoCryptoFA::known[ptr]->hasToBeProtected;
+    return NoCryptoFA::known[ptr]->hasToBeProtected;
+ //   return NoCryptoFA::known[ptr]->hasMetPlaintext;
 }
 bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
 {
@@ -218,6 +220,17 @@ void CalcDFG::calcPost(Instruction* ptr)
 	}
 }
 
+void checkNeedsMasking(Instruction* ptr,NoCryptoFA::InstructionMetadata* md){
+   // errs() << "checkNeedsMasking di " << *ptr << "\n";
+#define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcPreTraits<type>::needsMasking(cast<type>(ptr),md)
+        if(0) {}
+        CHECK_TYPE(SelectInst);
+        CHECK_TYPE(BinaryOperator);
+        CHECK_TYPE(CastInst);
+        CHECK_TYPE(GetElementPtrInst);
+        else { CalcPreTraits<Instruction>::needsMasking(ptr, md); }
+#undef CHECK_TYPE
+}
 void CalcDFG::calcPre(llvm::Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
@@ -227,18 +240,14 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
 	CHECK_TYPE(BinaryOperator);
 	CHECK_TYPE(CastInst);
 	CHECK_TYPE(GetElementPtrInst);
-    CHECK_TYPE(SelectInst);
+	CHECK_TYPE(SelectInst);
 	else { CalcPreTraits<Instruction>::calc(changed, ptr, md); }
 #undef CHECK_TYPE
+    bool oldProt=md->hasToBeProtected;
+    checkNeedsMasking(ptr,md);
+    if(oldProt != md->hasToBeProtected){changed=true;}
 	if(changed || md->own.any()) {
-#define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcPreTraits<type>::needsMasking(cast<type>(ptr),md)
-		if(0) {}
-		CHECK_TYPE(BinaryOperator);
-		CHECK_TYPE(CastInst);
-		CHECK_TYPE(GetElementPtrInst);
-        CHECK_TYPE(SelectInst);
-		else { CalcPreTraits<Instruction>::needsMasking(ptr, md); }
-#undef CHECK_TYPE
+
 		if(!ptr->use_empty()) {
 			for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
 				if(Instruction* _it = dyn_cast<Instruction>(*it)) {

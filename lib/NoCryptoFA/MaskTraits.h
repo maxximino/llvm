@@ -88,9 +88,9 @@ struct MaskTraits<BinaryOperator> {
 						return true;
 					}
 					break;
-				case Instruction::LShr:
 				case Instruction::AShr:
 				case Instruction::Shl:
+				case Instruction::LShr:
 					if(isa<ConstantInt>(ptr->getOperand(1))) {
 						vector<Value*> op = MaskValue(ptr->getOperand(0), ptr);
 						md->MaskedValues.push_back(ib.CreateBinOp(ptr->getOpcode(), op[0], ptr->getOperand(1)));
@@ -169,7 +169,6 @@ struct MaskTraits<GetElementPtrInst> {
 			md->isSbox = true;
 			int size = ptr->getType()->getPointerElementType()->getScalarSizeInBits();
 			Function& msk = GetMaskingFn(ptr->getParent()->getParent()->getParent(), size);
-			annota(ptr, "sboxxx");
 			llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
 			ib.SetInsertPoint(ptr);
 			vector<Value*> idx = MaskValue(ptr->getOperand(2), ptr);
@@ -257,7 +256,7 @@ struct MaskTraits<GetElementPtrInst> {
 			ib_fo.CreateStore(rndval, outmask1);
 			ib_fo.CreateStore(retval, outmask2);
 			ib_fo.CreateRetVoid();
-            return *Fun;
+			return *Fun;
 		}
 
 };
@@ -265,6 +264,7 @@ template <>
 struct MaskTraits<LoadInst> {
 	public:
 		static bool replaceWithMasked(LoadInst* ptr, NoCryptoFA::InstructionMetadata* md) {
+            if(!isa<Instruction>(ptr->getPointerOperand())) {return false;}
 			if(!llvm::NoCryptoFA::known[cast<Instruction>(ptr->getPointerOperand())]->isSbox) {return false;}
 			md->isSbox = true;
 			vector<Value*> idx = MaskValue(ptr->getPointerOperand(), ptr);
@@ -273,19 +273,19 @@ struct MaskTraits<LoadInst> {
 			return true;
 		}
 };
-
 template <>
 struct MaskTraits<SelectInst> {
-    public:
-        static bool replaceWithMasked(SelectInst* ptr, NoCryptoFA::InstructionMetadata* md) {
-            llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
-            ib.SetInsertPoint(ptr);
-            vector<Value*> vTrue = MaskValue(ptr->getTrueValue(), ptr);
-            vector<Value*> vFalse = MaskValue(ptr->getFalseValue(), ptr);
-            md->MaskedValues.push_back(ib.CreateSelect(ptr->getCondition(),vTrue[0],vFalse[0]));
-            md->MaskedValues.push_back(ib.CreateSelect(ptr->getCondition(),vTrue[1],vFalse[1]));
-            BuildMetadata(md->MaskedValues[0], ptr, NoCryptoFA::InstructionMetadata::SELECT_MASKED);
-            BuildMetadata(md->MaskedValues[1], ptr, NoCryptoFA::InstructionMetadata::SELECT_MASKED);
-            return true;
-        }
+	public:
+		static bool replaceWithMasked(SelectInst* ptr, NoCryptoFA::InstructionMetadata* md) {
+			llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
+			ib.SetInsertPoint(ptr);
+            vector<Value*> c = MaskValue(ptr->getCondition(),ptr);
+			vector<Value*> vTrue = MaskValue(ptr->getTrueValue(), ptr);
+			vector<Value*> vFalse = MaskValue(ptr->getFalseValue(), ptr);
+            md->MaskedValues.push_back(ib.CreateSelect(c[0], vTrue[0], vFalse[0]));
+            md->MaskedValues.push_back(ib.CreateSelect(c[0], vTrue[1], vFalse[1]));
+			BuildMetadata(md->MaskedValues[0], ptr, NoCryptoFA::InstructionMetadata::SELECT_MASKED);
+			BuildMetadata(md->MaskedValues[1], ptr, NoCryptoFA::InstructionMetadata::SELECT_MASKED);
+			return true;
+		}
 };
