@@ -21,7 +21,7 @@ using namespace llvm;
 using namespace std;
 static cl::opt<unsigned int>
 MaskingOrder("nocryptofa-masking-order", cl::init(1), cl::ValueRequired,
-               cl::desc("NoCryptoFA Masking order"));
+             cl::desc("NoCryptoFA Masking order"));
 
 
 namespace llvm
@@ -75,19 +75,19 @@ llvm::Function& GetRandomFn(llvm::Module* Mod, int size)
 	                                  NULL);
 	Fun = llvm::cast<llvm::Function>(FunSym);
 	llvm::BasicBlock* Entry = llvm::BasicBlock::Create(Ctx, "entry", Fun);
-      llvm::Function& rand = GetRand(Mod);
+	llvm::Function& rand = GetRand(Mod);
 	llvm::IRBuilder<> ib = llvm::IRBuilder<>(Entry->getContext());
 	ib.SetInsertPoint(Entry);
-     CallInst* rndval = ib.CreateCall(&rand);
-	  Value* retval=rndval;
-	  if(size < 32){
-	      retval = ib.CreateTrunc(rndval,llvm::Type::getIntNTy(Ctx,size));
-      }
+	CallInst* rndval = ib.CreateCall(&rand);
+	Value* retval = rndval;
+	if(size < 32) {
+		retval = ib.CreateTrunc(rndval, llvm::Type::getIntNTy(Ctx, size));
+	}
 	/*
 	  Value* addr = ib.CreateIntToPtr(ConstantInt::get(Type::getInt32Ty(Ctx),12345,false),Type::getInt32PtrTy(Ctx));
 	  LoadInst* rndval = ib.CreateLoad(addr,true);*/
-    llvm::ReturnInst::Create(Ctx, retval, Entry);
-    //llvm::ReturnInst::Create(Ctx, ConstantInt::get(Type::getIntNTy(Ctx, size), 4, false) , Entry);
+	llvm::ReturnInst::Create(Ctx, retval, Entry);
+	//llvm::ReturnInst::Create(Ctx, ConstantInt::get(Type::getIntNTy(Ctx, size), 4, false) , Entry);
 	return *Fun;
 }
 void annota(Value* cosa, std::string commento)  // roba da primo debug, niente di serio. Destinato a sparire.
@@ -146,7 +146,7 @@ vector<Value*> MaskValue(Value* ptr, Instruction* relativepos)
 	   a[0] = rand()
 	   a[1] = a XOR rand();
 	    */
-    //TODO: Higher order masking
+	//TODO: Higher order masking
 	llvm::Value* a0 = ib.CreateCall(&rand);
 	annota(a0, "ins_maschera");
 	BuildMetadata(a0, dyn_cast<Instruction>(ptr), NoCryptoFA::InstructionMetadata::CREATE_MASK);
@@ -204,7 +204,7 @@ void InstructionReplace::Unmask(Instruction* ptr)
 	SetInsertionPoint(true, ib, ptr); //NO, dopo l'ultimo masked
 	llvm::Value* v = ib.CreateXor(md->MaskedValues[0], md->MaskedValues[1]);
 	annota(v, "rimozi_maschera");
-        //TODO: Higher order masking
+	//TODO: Higher order masking
 	BuildMetadata(v, ptr, NoCryptoFA::InstructionMetadata::REMOVE_MASK);
 	md->unmasked_value = cast<Instruction>(v);
 	//fixNextUses(ptr,v);

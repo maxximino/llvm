@@ -19,24 +19,21 @@ static void Calc_Pre_BitwiseOr(bool& changed, T* ptr, NoCryptoFA::InstructionMet
 template<typename T>
 static void Calc_Pre_TFMatrixOr(bool& changed, T* ptr, NoCryptoFA::InstructionMetadata* md)
 {
-    bitset<MAX_KEYBITS> tmp(0);
-            int size = md->pre.size();
-            Instruction * trueval = cast<Instruction>(ptr->getTrueValue());
-
-            Instruction * falseval = cast<Instruction>(ptr->getFalseValue());
-            for(int i = 0; i < size; ++i) {
-                tmp |= NoCryptoFA::known[trueval]->pre[i];
-
-                tmp |= NoCryptoFA::known[falseval]->pre[i];
-                if(NoCryptoFA::known[trueval]->own.any()) {
-                    tmp |= NoCryptoFA::known[trueval]->own;
-                }
-                if(NoCryptoFA::known[falseval]->own.any()) {
-                    tmp |= NoCryptoFA::known[falseval]->own;
-                }
-                set_if_changed<MAX_KEYBITS>(changed, &(md->pre[i]), tmp);
-            }
-
+	bitset<MAX_KEYBITS> tmp(0);
+	int size = md->pre.size();
+	Instruction* trueval = cast<Instruction>(ptr->getTrueValue());
+	Instruction* falseval = cast<Instruction>(ptr->getFalseValue());
+	for(int i = 0; i < size; ++i) {
+		tmp |= NoCryptoFA::known[trueval]->pre[i];
+		tmp |= NoCryptoFA::known[falseval]->pre[i];
+		if(NoCryptoFA::known[trueval]->own.any()) {
+			tmp |= NoCryptoFA::known[trueval]->own;
+		}
+		if(NoCryptoFA::known[falseval]->own.any()) {
+			tmp |= NoCryptoFA::known[falseval]->own;
+		}
+		set_if_changed<MAX_KEYBITS>(changed, &(md->pre[i]), tmp);
+	}
 }
 template<typename T>
 static void Calc_Pre_BiggestSum(bool& changed, T* ptr, NoCryptoFA::InstructionMetadata* md)
@@ -181,25 +178,23 @@ template<>
 struct CalcPreTraits<SelectInst> {
 	public:
 		static void calc(bool& changed, SelectInst* ptr, NoCryptoFA::InstructionMetadata* md) {
-            Calc_Pre_TFMatrixOr(changed, ptr, md);
+			Calc_Pre_TFMatrixOr(changed, ptr, md);
 		}
 		static void needsMasking(SelectInst* ptr, NoCryptoFA::InstructionMetadata* md) {
-            md->hasToBeProtected = false;
-            if(!md->hasMetPlaintext) { return; }
-            Instruction* trueval=cast<Instruction>(ptr->getTrueValue());
-
-            Instruction* falseval=cast<Instruction>(ptr->getFalseValue());
-           // checkNeedsMasking(trueval,NoCryptoFA::known[trueval]);
-
-            //checkNeedsMasking(falseval,NoCryptoFA::known[falseval]);
-            cerr << "Select masked?T" << NoCryptoFA::known[trueval]->hasToBeProtected;
-            md->hasToBeProtected |= NoCryptoFA::known[trueval]->hasToBeProtected; //rischio segfault se non è istruzione
-            cerr << " F " << NoCryptoFA::known[falseval]->hasToBeProtected;
-            md->hasToBeProtected |= NoCryptoFA::known[falseval]->hasToBeProtected; //rischio segfault se non  è istuzione
-            cerr <<" RIS " << md->hasToBeProtected;
-            raw_fd_ostream rerr(2, false);
-            rerr << " in:" << *(ptr) << "\n";
-            return;
+			md->hasToBeProtected = false;
+			if(!md->hasMetPlaintext) { return; }
+			Instruction* trueval = cast<Instruction>(ptr->getTrueValue());
+			Instruction* falseval = cast<Instruction>(ptr->getFalseValue());
+			// checkNeedsMasking(trueval,NoCryptoFA::known[trueval]);
+			//checkNeedsMasking(falseval,NoCryptoFA::known[falseval]);
+			cerr << "Select masked?T" << NoCryptoFA::known[trueval]->hasToBeProtected;
+			md->hasToBeProtected |= NoCryptoFA::known[trueval]->hasToBeProtected; //rischio segfault se non è istruzione
+			cerr << " F " << NoCryptoFA::known[falseval]->hasToBeProtected;
+			md->hasToBeProtected |= NoCryptoFA::known[falseval]->hasToBeProtected; //rischio segfault se non  è istuzione
+			cerr << " RIS " << md->hasToBeProtected;
+			raw_fd_ostream rerr(2, false);
+			rerr << " in:" << *(ptr) << "\n";
+			return;
 		}
 
 };

@@ -46,7 +46,7 @@ struct MaskTraits<BinaryOperator> {
 						    %5=a[1] AND b[1]
 						    c[1] = %5 XOR y
 						 */
-                            //TODO: Higher order masking
+						//TODO: Higher order masking
 						llvm::Value* x = ib.CreateCall(&rand);
 						llvm::Value* t1 = ib.CreateAnd(op1[0], op2[1]);
 						llvm::Value* t2 = ib.CreateAnd(op1[1], op2[0]);
@@ -69,7 +69,7 @@ struct MaskTraits<BinaryOperator> {
 					}
 					break;
 				case Instruction::Xor: {
-                    //TODO: Higher order masking
+						//TODO: Higher order masking
 						vector<Value*> op1 = MaskValue(ptr->getOperand(0), ptr);
 						vector<Value*> op2 = MaskValue(ptr->getOperand(1), ptr);
 						llvm::Function& randF = GetRandomFn(ptr->getParent()->getParent()->getParent(), size);
@@ -93,7 +93,7 @@ struct MaskTraits<BinaryOperator> {
 				case Instruction::AShr:
 				case Instruction::Shl:
 				case Instruction::LShr:
-                    //TODO: Higher order masking
+					//TODO: Higher order masking
 					if(isa<ConstantInt>(ptr->getOperand(1))) {
 						vector<Value*> op = MaskValue(ptr->getOperand(0), ptr);
 						md->MaskedValues.push_back(ib.CreateBinOp(ptr->getOpcode(), op[0], ptr->getOperand(1)));
@@ -133,7 +133,7 @@ struct MaskTraits<CastInst> {
 				case Instruction::ZExt:
 				case Instruction::SExt:
 				case Instruction::BitCast: {
-                    //TODO: Higher order masking
+						//TODO: Higher order masking
 						llvm::IRBuilder<> ib = llvm::IRBuilder<>(i->getContext());
 						ib.SetInsertPoint(i);
 						vector<Value*> op = MaskValue(i->getOperand(0), i);
@@ -164,7 +164,7 @@ template <>
 struct MaskTraits<GetElementPtrInst> {
 	public:
 		static bool replaceWithMasked(GetElementPtrInst* ptr, NoCryptoFA::InstructionMetadata* md) {
-                //TODO: Higher order masking
+			//TODO: Higher order masking
 			raw_fd_ostream rerr(2, false);
 			if(!md->isSbox) {rerr << *ptr; cerr << "! is sbox " << endl; return false;}
 			cerr << "WOW is sbox " << endl;
@@ -192,7 +192,7 @@ struct MaskTraits<GetElementPtrInst> {
 			return true;
 		}
 		static llvm::Function& GetMaskingFn(llvm::Module* Mod, int size) {
-                //TODO: Higher order masking
+			//TODO: Higher order masking
 			stringstream ss("");
 			ss << "__sboxmask" << size;
 			llvm::Function* Fun = Mod->getFunction(ss.str());
@@ -270,8 +270,8 @@ template <>
 struct MaskTraits<LoadInst> {
 	public:
 		static bool replaceWithMasked(LoadInst* ptr, NoCryptoFA::InstructionMetadata* md) {
-                //TODO: Higher order masking
-            if(!isa<Instruction>(ptr->getPointerOperand())) {return false;}
+			//TODO: Higher order masking
+			if(!isa<Instruction>(ptr->getPointerOperand())) {return false;}
 			if(!llvm::NoCryptoFA::known[cast<Instruction>(ptr->getPointerOperand())]->isSbox) {return false;}
 			md->isSbox = true;
 			vector<Value*> idx = MaskValue(ptr->getPointerOperand(), ptr);
@@ -284,14 +284,14 @@ template <>
 struct MaskTraits<SelectInst> {
 	public:
 		static bool replaceWithMasked(SelectInst* ptr, NoCryptoFA::InstructionMetadata* md) {
-                //TODO: Higher order masking
+			//TODO: Higher order masking
 			llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
 			ib.SetInsertPoint(ptr);
-            vector<Value*> c = MaskValue(ptr->getCondition(),ptr);
+			vector<Value*> c = MaskValue(ptr->getCondition(), ptr);
 			vector<Value*> vTrue = MaskValue(ptr->getTrueValue(), ptr);
 			vector<Value*> vFalse = MaskValue(ptr->getFalseValue(), ptr);
-            md->MaskedValues.push_back(ib.CreateSelect(c[0], vTrue[0], vFalse[0]));
-            md->MaskedValues.push_back(ib.CreateSelect(c[0], vTrue[1], vFalse[1]));
+			md->MaskedValues.push_back(ib.CreateSelect(c[0], vTrue[0], vFalse[0]));
+			md->MaskedValues.push_back(ib.CreateSelect(c[0], vTrue[1], vFalse[1]));
 			BuildMetadata(md->MaskedValues[0], ptr, NoCryptoFA::InstructionMetadata::SELECT_MASKED);
 			BuildMetadata(md->MaskedValues[1], ptr, NoCryptoFA::InstructionMetadata::SELECT_MASKED);
 			return true;
