@@ -15,9 +15,14 @@
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/NoCryptoFA/All.h>
+#include <llvm/Support/CommandLine.h>
 
 using namespace llvm;
 using namespace std;
+static cl::opt<unsigned int>
+MaskingOrder("nocryptofa-masking-order", cl::init(1), cl::ValueRequired,
+               cl::desc("NoCryptoFA Masking order"));
+
 
 namespace llvm
 {
@@ -141,6 +146,7 @@ vector<Value*> MaskValue(Value* ptr, Instruction* relativepos)
 	   a[0] = rand()
 	   a[1] = a XOR rand();
 	    */
+    //TODO: Higher order masking
 	llvm::Value* a0 = ib.CreateCall(&rand);
 	annota(a0, "ins_maschera");
 	BuildMetadata(a0, dyn_cast<Instruction>(ptr), NoCryptoFA::InstructionMetadata::CREATE_MASK);
@@ -198,6 +204,7 @@ void InstructionReplace::Unmask(Instruction* ptr)
 	SetInsertionPoint(true, ib, ptr); //NO, dopo l'ultimo masked
 	llvm::Value* v = ib.CreateXor(md->MaskedValues[0], md->MaskedValues[1]);
 	annota(v, "rimozi_maschera");
+        //TODO: Higher order masking
 	BuildMetadata(v, ptr, NoCryptoFA::InstructionMetadata::REMOVE_MASK);
 	md->unmasked_value = cast<Instruction>(v);
 	//fixNextUses(ptr,v);

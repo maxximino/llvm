@@ -16,7 +16,6 @@ using namespace llvm;
 static cl::opt<unsigned int>
 SecurityMargin("nocryptofa-security-margin", cl::init(128), cl::ValueRequired,
                cl::desc("NoCryptoFA Security Margin (bits)"));
-
 template<int SIZE>
 void set_if_changed(bool& changed, bitset<SIZE>* var, bitset<SIZE> newvalue)
 {
