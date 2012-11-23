@@ -20,6 +20,20 @@ namespace llvm
 	{
 		struct InstructionMetadata;
 		extern std::map<llvm::Instruction*, llvm::NoCryptoFA::InstructionMetadata*> known;
+		struct StatisticInfo {
+			int max;
+			int min;
+			int min_nonzero;
+			int avg;
+			int avg_nonzero;
+			StatisticInfo() {
+				max = 0;
+				min = 0;
+				min_nonzero = 0;
+				avg = 0;
+				avg_nonzero = 0;
+			}
+		};
 		struct InstructionMetadata {
 			enum InstructionSource {
 			    ORIGINAL_PROGRAM,
@@ -29,8 +43,8 @@ namespace llvm
 			    CAST_MASKED,
 			    SHIFT_MASKED,
 			    SBOX_MASKED,
-                SELECT_MASKED,
-                REMOVE_MASK
+			    SELECT_MASKED,
+			    REMOVE_MASK
 			};
 			bool isAKeyOperation;
 			bool isAKeyStart;
@@ -46,8 +60,8 @@ namespace llvm
 			Instruction* my_instruction;
 			Instruction* unmasked_value;
 			std::vector<Value*> MaskedValues;
-
-			InstructionMetadata(Instruction* ptr): pre(0), own(0), post_sum(0), post_min(0), MaskedValues(0) {
+			StatisticInfo pre_stats;
+			InstructionMetadata(Instruction* ptr): pre(0), own(0), post_sum(0), post_min(0), MaskedValues(0), pre_stats() {
 				isAKeyOperation = false;
 				isAKeyStart = false;
 				isSbox = false;

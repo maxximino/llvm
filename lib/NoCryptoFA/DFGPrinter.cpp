@@ -184,6 +184,35 @@ void outFile(std::string nodename, std::string contenuto)
 	ofstream out(fname.append(nodename));
 	out << contenuto;
 }
+static void calcStatistics(Instruction* ptr)
+{
+	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
+	int avgcnt = 0;
+	int avgnzcnt = 0;
+	int cnt = 0;
+	md->pre_stats.min = 999999;
+	md->pre_stats.min_nonzero = 999999;
+for(bitset<MAX_KEYBITS> cur: md->pre) {
+		cnt = cur.count();
+		avgcnt++;
+		if(cnt > md->pre_stats.max) {
+			md->pre_stats.max = cnt;
+		}
+		if(cnt < md->pre_stats.min) {
+			md->pre_stats.min = cnt;
+		}
+		if(cnt > 0) {
+			md->pre_stats.avg_nonzero += cnt;
+			md->pre_stats.avg += cnt;
+			avgnzcnt++;
+			if(cnt < md->pre_stats.min_nonzero) {
+				md->pre_stats.min_nonzero = cnt;
+			}
+		}
+	}
+	if(avgcnt > 0) { md->pre_stats.avg = md->pre_stats.avg / avgcnt; }
+	if(avgnzcnt > 0) { md->pre_stats.avg_nonzero = md->pre_stats.avg_nonzero / avgnzcnt; }
+}
 bool DFGPrinter::runOnModule(llvm::Module& M)
 {
 	MyNodeType* cur;
@@ -200,6 +229,9 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 		    ++BB) {
 			CalcDFG& cd = getAnalysis<CalcDFG>(*F);
 			TaggedData& td = getAnalysis<TaggedData>(*F);
+			string instr_dump_str = string();
+			llvm::raw_string_ostream instr_dump(instr_dump_str);
+			instr_dump << "Max;Min;MinNZ;Avg;AvgNZ;Plaintext;ToBeProtected;SourceLine;SourceColumn;\"Full instruction\"\n";
 			if(!td.functionMarked(&(*F))) { continue; }
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
 				if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
@@ -207,9 +239,24 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				llvm::raw_string_ostream os (outp);
 				std::stringstream boxcont("");
 				std::stringstream fname("");
+				calcStatistics(i);
 				boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/></head><body><pre>";
 				os << *i << "\n";
 				llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
+				instr_dump << md->pre_stats.max << ";";
+				instr_dump << md->pre_stats.min << ";";
+				instr_dump << md->pre_stats.min_nonzero << ";";
+				instr_dump << md->pre_stats.avg << ";";
+				instr_dump << md->pre_stats.avg_nonzero << ";";
+				instr_dump << md->hasMetPlaintext << ";";
+				instr_dump << md->hasToBeProtected << ";";
+				if(i->getDebugLoc().isUnknown()) {
+					instr_dump << "UNKNOWN;UNKNOWN;";
+				} else {
+					instr_dump << i->getDebugLoc().getLine() << ";";
+					instr_dump << i->getDebugLoc().getCol() << ";";
+				}
+				instr_dump << "\"" << *i << "\"\n";
 				if(md->isAKeyOperation) {
 					if(md->isAKeyStart) {
 						os << "KeyStart" << "\n";
@@ -299,6 +346,9 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				}
 				if(!added) { me->addChildren(cur); }
 			}
+			stringstream fname("");
+			fname << F->getName().str() << ".dat";
+			outFile(fname.str(), instr_dump.str());
 		}
 	}
 	return false;
