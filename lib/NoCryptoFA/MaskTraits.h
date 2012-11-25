@@ -36,35 +36,36 @@ struct MaskTraits<BinaryOperator> {
 						llvm::Function& rand = GetRandomFn(ptr->getParent()->getParent()->getParent(), size);
 						vector<Value*> op1 = MaskValue(ptr->getOperand(0), ptr);
 						vector<Value*> op2 = MaskValue(ptr->getOperand(1), ptr);
-						/*  x = rand()
-						    %1=a[0] AND b[1]
-						    %2=a[1] AND b[0]
-						    %3= x XOR %1
-						    y = %3 XOR %2
-						    %4=a[0] AND b[0]
-						    c[0] = %4 XOR x
-						    %5=a[1] AND b[1]
-						    c[1] = %5 XOR y
+                        /* z[i][j] con i < j = rand()
+                         * z[i][j] con i > j = z[j][i] ^ a[j]&b[i]  ^ a[i]&b[j]
+                         * c[i] = a[i]&b[i] ^ XOR( z[i][k] con k != i)
 						 */
 						//TODO: Higher order masking
-						llvm::Value* x = ib.CreateCall(&rand);
-						llvm::Value* t1 = ib.CreateAnd(op1[0], op2[1]);
-						llvm::Value* t2 = ib.CreateAnd(op1[1], op2[0]);
-						llvm::Value* t3 = ib.CreateXor(x, t1);
-						llvm::Value* y = ib.CreateXor(t3, t2);
-						llvm::Value* t4 = ib.CreateAnd(op1[0], op2[0]);
-						llvm::Value* t5 = ib.CreateAnd(op1[1], op2[1]);
-						md->MaskedValues.push_back(ib.CreateXor(t4, x));
-						md->MaskedValues.push_back(ib.CreateXor(t5, y));
-						BuildMetadata(x, ptr, NoCryptoFA::InstructionMetadata::AND_MASKED);
-						BuildMetadata(t1, ptr, NoCryptoFA::InstructionMetadata::AND_MASKED);
-						BuildMetadata(t2, ptr, NoCryptoFA::InstructionMetadata::AND_MASKED);
-						BuildMetadata(t3, ptr, NoCryptoFA::InstructionMetadata::AND_MASKED);
-						BuildMetadata(y, ptr, NoCryptoFA::InstructionMetadata::AND_MASKED);
-						BuildMetadata(t4, ptr, NoCryptoFA::InstructionMetadata::AND_MASKED);
-						BuildMetadata(t5, ptr, NoCryptoFA::InstructionMetadata::AND_MASKED);
-						BuildMetadata(md->MaskedValues[0], ptr, NoCryptoFA::InstructionMetadata::AND_MASKED);
-						BuildMetadata(md->MaskedValues[1], ptr, NoCryptoFA::InstructionMetadata::AND_MASKED);
+
+#define I(var,val) var=val; BuildMetadata(var, ptr, NoCryptoFA::InstructionMetadata::AND_MASKED)
+                        Value* z[MaskingOrder+1][MaskingOrder+1];
+                        for(int j = 0; j<= MaskingOrder; j++){
+                            for(int i = 0; i < j; i++){
+                                I(z[i][j],ib.CreateCall(&rand));
+                            }
+                        }
+                        Value *t1,*t2,*t3;
+                        for(int j = 0; j<= MaskingOrder; j++){
+                            for(int i = j+1; i <= MaskingOrder; i++){
+                                I(t1,ib.CreateAnd(op1[j],op2[i]));
+                                I(t2,ib.CreateAnd(op1[i],op2[j]));
+                                I(t3,ib.CreateXor(z[j][i],t1));
+                                I(z[i][j],ib.CreateXor(t3,t2));
+                            }
+                        }
+                        for(int i = 0; i<= MaskingOrder; i++){
+                                I(t1,ib.CreateAnd(op1[i],op2[i]));
+                                for(int k = 0; k<= MaskingOrder; k++){
+                                    if(i==k) continue;
+                                    I(t1,ib.CreateXor(t1,z[i][k]));
+                                }
+                                md->MaskedValues.push_back(t1);
+                        }
 						return true;
 					}
 					break;
