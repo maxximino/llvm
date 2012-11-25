@@ -143,27 +143,31 @@ vector<Value*> MaskValue(Value* ptr, Instruction* relativepos)
 	llvm::IRBuilder<> ib = llvm::IRBuilder<>(relativepos->getContext());
 	SetInsertionPoint(after, ib, relativepos);
 	/* Applico la maschera
+       t = val;
 	   a[0] = rand()
-	   a[1] = a XOR rand();
+       t = t XOR a[0];
+       a[1] = rand();
+       t = t XOR a[1];
+       //ecc
+       a[n+1]=t;
 	    */
-	//TODO: Higher order masking
-	llvm::Value* a0 = ib.CreateCall(&rand);
-	annota(a0, "ins_maschera");
-	BuildMetadata(a0, dyn_cast<Instruction>(ptr), NoCryptoFA::InstructionMetadata::CREATE_MASK);
-	llvm::Value* a1 = ib.CreateXor(a0, ptr);
-	annota(a1, "ins_maschera");
-	BuildMetadata(a1, dyn_cast<Instruction>(ptr), NoCryptoFA::InstructionMetadata::CREATE_MASK);
+    vector<Value*> v;
+    llvm::Value* latestXor = ptr;
+    for(int i = 0; i < MaskingOrder; i++){
+        llvm::Value* rnd = ib.CreateCall(&rand);
+        v.push_back(rnd);
+        annota(rnd, "ins_maschera");
+        BuildMetadata(rnd, dyn_cast<Instruction>(ptr), NoCryptoFA::InstructionMetadata::CREATE_MASK);
+        latestXor = ib.CreateXor(latestXor, rnd);
+        annota(latestXor, "ins_maschera");
+        BuildMetadata(latestXor, dyn_cast<Instruction>(ptr), NoCryptoFA::InstructionMetadata::CREATE_MASK);
+    }
+    v.push_back(latestXor);
 	if(isa<Instruction>(ptr)) {
 		NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[cast<Instruction>(ptr)];
-		md->MaskedValues.push_back(a0);
-		md->MaskedValues.push_back(a1);
-		return vector<Value*>(md->MaskedValues);
-	} else {
-		vector<Value*> v;
-		v.push_back(a0);
-		v.push_back(a1);
-		return v;
-	}
+        md->MaskedValues = v;
+    }
+    return v;
 }
 
 void InstructionReplace::phase1(llvm::Module& M)
@@ -202,10 +206,12 @@ void InstructionReplace::Unmask(Instruction* ptr)
 	if(md->unmasked_value != NULL) { return; }
 	llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
 	SetInsertionPoint(true, ib, ptr); //NO, dopo l'ultimo masked
-	llvm::Value* v = ib.CreateXor(md->MaskedValues[0], md->MaskedValues[1]);
-	annota(v, "rimozi_maschera");
-	//TODO: Higher order masking
-	BuildMetadata(v, ptr, NoCryptoFA::InstructionMetadata::REMOVE_MASK);
+    llvm::Value*  v = md->MaskedValues[0];
+    for(int i = 1; i <= MaskingOrder; i++){
+      v = ib.CreateXor(v, md->MaskedValues[i]);
+      annota(v, "rimozi_maschera");
+      BuildMetadata(v, ptr, NoCryptoFA::InstructionMetadata::REMOVE_MASK);
+    }
 	md->unmasked_value = cast<Instruction>(v);
 	//fixNextUses(ptr,v);
 	llvm::raw_fd_ostream rerr(2, false);

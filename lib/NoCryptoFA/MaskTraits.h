@@ -93,13 +93,12 @@ struct MaskTraits<BinaryOperator> {
 				case Instruction::AShr:
 				case Instruction::Shl:
 				case Instruction::LShr:
-					//TODO: Higher order masking
 					if(isa<ConstantInt>(ptr->getOperand(1))) {
 						vector<Value*> op = MaskValue(ptr->getOperand(0), ptr);
-						md->MaskedValues.push_back(ib.CreateBinOp(ptr->getOpcode(), op[0], ptr->getOperand(1)));
-						md->MaskedValues.push_back(ib.CreateBinOp(ptr->getOpcode(), op[1], ptr->getOperand(1)));
-						BuildMetadata(md->MaskedValues[0], ptr, NoCryptoFA::InstructionMetadata::SHIFT_MASKED);
-						BuildMetadata(md->MaskedValues[1], ptr, NoCryptoFA::InstructionMetadata::SHIFT_MASKED);
+                        for(int o = 0; o<= MaskingOrder; o++){
+                            md->MaskedValues.push_back(ib.CreateBinOp(ptr->getOpcode(), op[o], ptr->getOperand(1)));
+                            BuildMetadata(md->MaskedValues[o], ptr, NoCryptoFA::InstructionMetadata::SHIFT_MASKED);
+                        }
 						return true;
 					} else {
 						return unsupportedInstruction(ptr);
@@ -133,14 +132,14 @@ struct MaskTraits<CastInst> {
 				case Instruction::ZExt:
 				case Instruction::SExt:
 				case Instruction::BitCast: {
-						//TODO: Higher order masking
 						llvm::IRBuilder<> ib = llvm::IRBuilder<>(i->getContext());
 						ib.SetInsertPoint(i);
 						vector<Value*> op = MaskValue(i->getOperand(0), i);
-						md->MaskedValues.push_back(ib.CreateCast(i->getOpcode(), op[0], i->getDestTy()));
-						md->MaskedValues.push_back(ib.CreateCast(i->getOpcode(), op[1], i->getDestTy()));
-						BuildMetadata(md->MaskedValues[0], i, NoCryptoFA::InstructionMetadata::CAST_MASKED);
-						BuildMetadata(md->MaskedValues[1], i, NoCryptoFA::InstructionMetadata::CAST_MASKED);
+                        for(int o = 0; o<= MaskingOrder; o++){
+                            md->MaskedValues.push_back(ib.CreateCast(i->getOpcode(), op[o], i->getDestTy()));
+                            BuildMetadata(md->MaskedValues[o], i, NoCryptoFA::InstructionMetadata::CAST_MASKED);
+
+                        }
 						return true;
 					}
 					break;
@@ -270,13 +269,13 @@ template <>
 struct MaskTraits<LoadInst> {
 	public:
 		static bool replaceWithMasked(LoadInst* ptr, NoCryptoFA::InstructionMetadata* md) {
-			//TODO: Higher order masking
 			if(!isa<Instruction>(ptr->getPointerOperand())) {return false;}
 			if(!llvm::NoCryptoFA::known[cast<Instruction>(ptr->getPointerOperand())]->isSbox) {return false;}
 			md->isSbox = true;
 			vector<Value*> idx = MaskValue(ptr->getPointerOperand(), ptr);
-			md->MaskedValues.push_back(idx[0]);
-			md->MaskedValues.push_back(idx[1]);
+            for(int i = 0; i<= MaskingOrder; i++){
+            md->MaskedValues.push_back(idx[i]);
+            }
 			return true;
 		}
 };
@@ -284,16 +283,16 @@ template <>
 struct MaskTraits<SelectInst> {
 	public:
 		static bool replaceWithMasked(SelectInst* ptr, NoCryptoFA::InstructionMetadata* md) {
-			//TODO: Higher order masking
 			llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
 			ib.SetInsertPoint(ptr);
 			vector<Value*> c = MaskValue(ptr->getCondition(), ptr);
-			vector<Value*> vTrue = MaskValue(ptr->getTrueValue(), ptr);
-			vector<Value*> vFalse = MaskValue(ptr->getFalseValue(), ptr);
-			md->MaskedValues.push_back(ib.CreateSelect(c[0], vTrue[0], vFalse[0]));
-			md->MaskedValues.push_back(ib.CreateSelect(c[0], vTrue[1], vFalse[1]));
-			BuildMetadata(md->MaskedValues[0], ptr, NoCryptoFA::InstructionMetadata::SELECT_MASKED);
-			BuildMetadata(md->MaskedValues[1], ptr, NoCryptoFA::InstructionMetadata::SELECT_MASKED);
+            vector<Value*> vTrue = MaskValue(ptr->getTrueValue(), ptr);
+            vector<Value*> vFalse = MaskValue(ptr->getFalseValue(), ptr);
+            md->MaskedValues.clear();
+            for(int i = 0; i<= MaskingOrder; i++){
+                md->MaskedValues.push_back(ib.CreateSelect(c[i], vTrue[i], vFalse[i]));
+                BuildMetadata(md->MaskedValues[i], ptr, NoCryptoFA::InstructionMetadata::SELECT_MASKED);
+            }
 			return true;
 		}
 };
