@@ -40,7 +40,7 @@ bool TaggedData::runOnFunction(llvm::Function& Fun)
 		    E = FI->end();
 		    I != E;
 		    ++I) {
-			checkMeta(I.getNodePtrUnchecked());
+            checkMeta(I);
 		}
 	}
 	if(hasmd) {
@@ -159,7 +159,6 @@ void TaggedData::checkMeta(llvm::Instruction* ptr)
 void TaggedData::getAnalysisUsage(llvm::AnalysisUsage& AU) const
 {
 	// This is an analysis, nothing is modified, so other analysis are preserved.
-	AU.addRequired<DominatorTree>();
 	AU.setPreservesAll();
 }
 

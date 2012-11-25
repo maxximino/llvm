@@ -346,9 +346,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				}
 				if(!added) { me->addChildren(cur); }
 			}
-			stringstream fname("");
-			fname << F->getName().str() << ".dat";
-			outFile(fname.str(), instr_dump.str());
+            outFile(F->getName().str().append(".dat"), instr_dump.str());
 		}
 	}
 	return false;
