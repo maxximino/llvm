@@ -69,24 +69,43 @@ struct MaskTraits<BinaryOperator> {
 					}
 					break;
 				case Instruction::Xor: {
-						//TODO: Higher order masking
+                        /* Esempio per ordine tre:
+                         *input operando1: r1,r2,r3,a^r1^r2^r3
+                         *input operando2: r4,r5,r6,b^r4^r5^r6
+                         * nuovi random: r7,r8,r9
+                         *le nuove share saranno:
+                         *r1^r4^r7
+                         *r2^r5^r8
+                         *r3^r6^r9
+                         *a^r1^r2^r3^r8  ^  b^r4^r5^r6^r7^r9
+                         *lo XOR di tutte le share, come previsto, produce a^b.
+                         */
 						vector<Value*> op1 = MaskValue(ptr->getOperand(0), ptr);
 						vector<Value*> op2 = MaskValue(ptr->getOperand(1), ptr);
-						llvm::Function& randF = GetRandomFn(ptr->getParent()->getParent()->getParent(), size);
-						llvm::Value* rand = ib.CreateCall(&randF);
-						Value* a0 = ib.CreateXor(op1[0], rand);
-						Value* a1 = ib.CreateXor(op1[1], rand);
-						Value* b0 = ib.CreateXor(op2[0], rand);
-						Value* b1 = ib.CreateXor(op2[1], rand);
-						md->MaskedValues.push_back(ib.CreateXor(a0, b0));
-						md->MaskedValues.push_back(ib.CreateXor(a1, b1));
-						BuildMetadata(rand, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
-						BuildMetadata(a0, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
-						BuildMetadata(a1, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
-						BuildMetadata(b0, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
-						BuildMetadata(b1, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
-						BuildMetadata(md->MaskedValues[0], ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
-						BuildMetadata(md->MaskedValues[1], ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
+                        llvm::Function& randF = GetRandomFn(ptr->getParent()->getParent()->getParent(), size);
+                        Value* v_op1=op1[MaskingOrder];
+                        Value* v_op2=op2[MaskingOrder];
+                        for(int o = 0; o< MaskingOrder; o++){
+                            llvm::Value* rand = ib.CreateCall(&randF);
+                            BuildMetadata(rand, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
+                            Value* t1 = ib.CreateXor(op1[o], rand);
+                            Value* t2 = ib.CreateXor(t1, op2[o]);
+                            BuildMetadata(t1, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
+                            BuildMetadata(t2, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
+                            md->MaskedValues.push_back(t2);
+                            if(o%2){
+                                v_op1 = ib.CreateXor(v_op1, rand);
+                                BuildMetadata(v_op1, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
+                            }
+                            else{
+                                v_op2 = ib.CreateXor(v_op2, rand);
+                                BuildMetadata(v_op2, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
+                            }
+                        }
+                        Value* v_last = ib.CreateXor(v_op1,v_op2);
+                        BuildMetadata(v_last, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
+                        md->MaskedValues.push_back(v_last);
+
 						return true;
 					}
 					break;
