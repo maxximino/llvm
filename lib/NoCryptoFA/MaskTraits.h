@@ -268,6 +268,7 @@ post_sbox_s1= sbox_masked[s1]
 			i_start->addIncoming(llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), 0, false), Entry);
             Value* idx = i_start;
             for(int i = 0; i < MaskingOrder;i++) idx = ib_for.CreateXor(idx,inputshares[i]);
+            idx = ib_for.CreateAnd(idx,0xff); // non hardcoded!
             Value* newelptr = ib_for.CreateGEP(tmpsbox, idx);
 			vector<Value*> idxs;
 			idxs.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), 0, false));
@@ -281,7 +282,8 @@ post_sbox_s1= sbox_masked[s1]
 			i_start->addIncoming(newi, ForBody);
 			Value* exitcond = ib_for.CreateICmpEQ(newi, llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), 256, false));
 			ib_for.CreateCondBr(exitcond, FuncOut, ForBody);
-            Value* retptr = ib_fo.CreateGEP(tmpsbox, inputshares[MaskingOrder]);
+            idx = ib_fo.CreateAnd(inputshares[MaskingOrder],0xff); // non hardcoded!
+            Value* retptr = ib_fo.CreateGEP(tmpsbox, idx);
             newshares.push_back(ib_fo.CreateLoad(retptr));
             for(int i = 0; i <= MaskingOrder;i++) ib_fo.CreateStore(newshares[i], outputshares[i]);
 			ib_fo.CreateRetVoid();
