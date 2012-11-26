@@ -40,8 +40,6 @@ struct MaskTraits<BinaryOperator> {
                          * z[i][j] con i > j = z[j][i] ^ a[j]&b[i]  ^ a[i]&b[j]
                          * c[i] = a[i]&b[i] ^ XOR( z[i][k] con k != i)
 						 */
-						//TODO: Higher order masking
-
 #define I(var,val) var=val; BuildMetadata(var, ptr, NoCryptoFA::InstructionMetadata::AND_MASKED)
                         Value* z[MaskingOrder+1][MaskingOrder+1];
                         for(int j = 0; j<= MaskingOrder; j++){
@@ -69,6 +67,7 @@ struct MaskTraits<BinaryOperator> {
 						return true;
 					}
 					break;
+#undef I
 				case Instruction::Xor: {
                         /* Esempio per ordine tre:
                          *input operando1: r1,r2,r3,a^r1^r2^r3
@@ -183,8 +182,7 @@ template <>
 struct MaskTraits<GetElementPtrInst> {
 	public:
 		static bool replaceWithMasked(GetElementPtrInst* ptr, NoCryptoFA::InstructionMetadata* md) {
-			//TODO: Higher order masking
-			raw_fd_ostream rerr(2, false);
+            raw_fd_ostream rerr(2, false);
 			if(!md->isSbox) {rerr << *ptr; cerr << "! is sbox " << endl; return false;}
 			cerr << "WOW is sbox " << endl;
 			if(ptr->getNumIndices() != 2) {cerr << "ptr->getNumIndices() == " << ptr->getNumIndices() << endl; return false;}
@@ -196,22 +194,32 @@ struct MaskTraits<GetElementPtrInst> {
 			llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
 			ib.SetInsertPoint(ptr);
 			vector<Value*> idx = MaskValue(ptr->getOperand(2), ptr);
-			Value* v1 = ib.CreateAlloca(ptr->getPointerOperand()->getType()->getPointerElementType()->getSequentialElementType()); //Far dimagrire lo stack.
-			Value* v2 = ib.CreateAlloca(ptr->getPointerOperand()->getType()->getPointerElementType()->getSequentialElementType()); //Far dimagrire lo stack.
-			Value* call = ib.CreateCall5(&msk, ptr->getPointerOperand(), idx[0], idx[1], v1, v2);
-			Value* m1 = ib.CreateLoad(v1);
-			Value* m2 = ib.CreateLoad(v2);
-			md->MaskedValues.push_back(m1);
-			md->MaskedValues.push_back(m2);
-			BuildMetadata(v1, ptr, NoCryptoFA::InstructionMetadata::SBOX_MASKED);
-			BuildMetadata(v2, ptr, NoCryptoFA::InstructionMetadata::SBOX_MASKED);
-			BuildMetadata(call, ptr, NoCryptoFA::InstructionMetadata::SBOX_MASKED);
-			BuildMetadata(m1, ptr, NoCryptoFA::InstructionMetadata::SBOX_MASKED);
-			BuildMetadata(m2, ptr, NoCryptoFA::InstructionMetadata::SBOX_MASKED);
+#define I(var,val) do {var=val; BuildMetadata(var, ptr, NoCryptoFA::InstructionMetadata::SBOX_MASKED);}while(0)
+            Value* v[MaskingOrder+1];
+            Type* basetype = ptr->getPointerOperand()->getType()->getPointerElementType()->getSequentialElementType();
+            for(int i = 0; i <= MaskingOrder;i++)  I(v[i],ib.CreateAlloca(basetype)); // Far dimagrire lo stack.
+            std::vector<Value*> parameters;
+            parameters.push_back(ptr->getPointerOperand());
+            for(int i = 0; i <= MaskingOrder;i++) parameters.push_back(idx[i]);
+            for(int i = 0; i <= MaskingOrder;i++) parameters.push_back(v[i]);
+            Value* t;
+            I(t,ib.CreateCall(&msk,llvm::ArrayRef<Value*>(parameters)));
+            for(int i = 0; i <= MaskingOrder;i++) {
+                I(t,ib.CreateLoad(v[i]));
+                md->MaskedValues.push_back(t);
+            }
+#undef I
 			return true;
 		}
 		static llvm::Function& GetMaskingFn(llvm::Module* Mod, int size) {
-			//TODO: Higher order masking
+            /*
+post_sbox_s2 = rand_n1
+post_sbox_s3 = rand_n2
+for (i = 0; i<256; i++){
+sbox_masked[i^rand_v1^rand_v2]= sbox[i]^rand_n1^rand_n2
+}
+post_sbox_s1= sbox_masked[s1]
+*/
 			stringstream ss("");
 			ss << "__sboxmask" << size;
 			llvm::Function* Fun = Mod->getFunction(ss.str());
@@ -220,27 +228,21 @@ struct MaskTraits<GetElementPtrInst> {
 			}
 			llvm::LLVMContext& Ctx = Mod->getContext();
 			llvm::Constant* FunSym;
-			FunSym = Mod->getOrInsertFunction(ss.str(),
-			                                  llvm::Type::getVoidTy(Ctx),
-			                                  llvm::ArrayType::get(llvm::Type::getIntNTy(Ctx, size), 256)->getPointerTo(),
-			                                  llvm::Type::getInt64Ty(Ctx),
-			                                  llvm::Type::getInt64Ty(Ctx),
-			                                  llvm::Type::getIntNPtrTy(Ctx, size),
-			                                  llvm::Type::getIntNPtrTy(Ctx, size),
-			                                  NULL);
+            std::vector<Type*> paramtypes;
+            paramtypes.push_back(llvm::ArrayType::get(llvm::Type::getIntNTy(Ctx, size), 256)->getPointerTo()); //TODO non hardcoded il 256!
+            for(int i = 0; i <= MaskingOrder;i++) paramtypes.push_back(llvm::Type::getInt64Ty(Ctx)); //TODO riducibile?
+            for(int i = 0; i <= MaskingOrder;i++) paramtypes.push_back(llvm::Type::getIntNPtrTy(Ctx,size));
+            llvm::FunctionType* ftype = llvm::FunctionType::get(llvm::Type::getVoidTy(Ctx),llvm::ArrayRef<Type*>(paramtypes),false);
+            FunSym = Mod->getOrInsertFunction(ss.str(),ftype);
 			Fun = llvm::cast<llvm::Function>(FunSym);
 			Function::arg_iterator args = Fun->arg_begin();
 			Value* sboxptr = args++;
 			sboxptr->setName("sboxptr");
-			Value* inmask1 = args++;
-			inmask1->setName("inmask1");
-			Value* inmask2 = args++;
-			inmask2->setName("inmask2");
-			Value* outmask1 = args++;
-			outmask1->setName("outmask1");
-			Value* outmask2 = args++;
-			outmask2->setName("outmask2");
-			/*  %i.01 = phi i32 [ 0, %0 ], [ %3, %1 ]
+            std::vector<Value*> inputshares;
+            std::vector<Value*> outputshares;
+            for(int i = 0; i <= MaskingOrder;i++) inputshares.push_back(args++);
+            for(int i = 0; i <= MaskingOrder;i++) outputshares.push_back(args++);
+            /*  %i.01 = phi i32 [ 0, %0 ], [ %3, %1 ]
 			  %2 = tail call i32 (...)* @getchar() nounwind
 			  %3 = add nsw i32 %i.01, 1
 			  %exitcond = icmp eq i32 %3, 256
@@ -258,28 +260,30 @@ struct MaskTraits<GetElementPtrInst> {
 			llvm::BasicBlock* FuncOut = llvm::BasicBlock::Create(Ctx, "out", Fun);
 			llvm::IRBuilder<> ib_fo = llvm::IRBuilder<>(FuncOut->getContext());
 			ib_fo.SetInsertPoint(FuncOut);
-			CallInst* rndval = ib_entry.CreateCall(&rand);
+            vector<Value*> newshares;
+            for(int i = 0; i < MaskingOrder;i++) newshares.push_back(ib_entry.CreateCall(&rand));
 			Value* tmpsbox = ib_entry.CreateAlloca(llvm::Type::getIntNTy(Ctx, size), llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), 256, false));
 			ib_entry.CreateBr(ForBody);
 			PHINode* i_start = ib_for.CreatePHI(llvm::Type::getInt64Ty(Ctx), 2);
 			i_start->addIncoming(llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), 0, false), Entry);
-			Value* i = ib_for.CreateXor(i_start, inmask2);
-			Value* newelptr = ib_for.CreateGEP(tmpsbox, i);
+            Value* idx = i_start;
+            for(int i = 0; i < MaskingOrder;i++) idx = ib_for.CreateXor(idx,inputshares[i]);
+            Value* newelptr = ib_for.CreateGEP(tmpsbox, idx);
 			vector<Value*> idxs;
 			idxs.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), 0, false));
 			idxs.push_back(i_start);
 			Value* oldelptr = ib_for.CreateGEP(sboxptr, llvm::ArrayRef<Value*>(idxs));
 			Value* realval = ib_for.CreateLoad(oldelptr);
-			Value* newval = ib_for.CreateXor(realval, rndval);
-			ib_for.CreateStore(newval, newelptr);
+            Value* newval=realval;
+            for(int i = 0; i < MaskingOrder;i++) newval = ib_for.CreateXor(newval,newshares[i]);
+            ib_for.CreateStore(newval, newelptr);
 			Value* newi = ib_for.CreateAdd(i_start, llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), 1, false));
 			i_start->addIncoming(newi, ForBody);
 			Value* exitcond = ib_for.CreateICmpEQ(newi, llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), 256, false));
 			ib_for.CreateCondBr(exitcond, FuncOut, ForBody);
-			Value* retptr = ib_fo.CreateGEP(tmpsbox, inmask1);
-			Value* retval = ib_fo.CreateLoad(retptr);
-			ib_fo.CreateStore(rndval, outmask1);
-			ib_fo.CreateStore(retval, outmask2);
+            Value* retptr = ib_fo.CreateGEP(tmpsbox, inputshares[MaskingOrder]);
+            newshares.push_back(ib_fo.CreateLoad(retptr));
+            for(int i = 0; i <= MaskingOrder;i++) ib_fo.CreateStore(newshares[i], outputshares[i]);
 			ib_fo.CreateRetVoid();
 			return *Fun;
 		}
