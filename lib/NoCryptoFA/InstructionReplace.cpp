@@ -153,7 +153,7 @@ vector<Value*> MaskValue(Value* ptr, Instruction* relativepos)
 	    */
     vector<Value*> v;
     llvm::Value* latestXor = ptr;
-    for(int i = 0; i < MaskingOrder; i++){
+    for(unsigned int i = 0; i < MaskingOrder; i++){
         llvm::Value* rnd = ib.CreateCall(&rand);
         v.push_back(rnd);
         annota(rnd, "ins_maschera");
@@ -208,7 +208,7 @@ void InstructionReplace::Unmask(Instruction* ptr)
 	llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
 	SetInsertionPoint(true, ib, ptr); //NO, dopo l'ultimo masked
     llvm::Value*  v = md->MaskedValues[0];
-    for(int i = 1; i <= MaskingOrder; i++){
+    for(unsigned int i = 1; i <= MaskingOrder; i++){
       v = ib.CreateXor(v, md->MaskedValues[i]);
       annota(v, "rimozi_maschera");
       BuildMetadata(v, ptr, NoCryptoFA::InstructionMetadata::REMOVE_MASK);
