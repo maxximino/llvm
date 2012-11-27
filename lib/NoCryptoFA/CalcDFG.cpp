@@ -16,6 +16,10 @@ using namespace llvm;
 static cl::opt<unsigned int>
 SecurityMargin("nocryptofa-security-margin", cl::init(128), cl::ValueRequired,
                cl::desc("NoCryptoFA Security Margin (bits)"));
+static cl::opt<bool>
+MaskEverything("nocryptofa-mask-everything", cl::init(false), cl::ValueRequired,
+               cl::desc("NoCryptoFA Mask Everything"));
+
 template<int SIZE>
 void set_if_changed(bool& changed, bitset<SIZE>* var, bitset<SIZE> newvalue)
 {
@@ -143,7 +147,8 @@ int CalcDFG::getOperandSize(llvm::Type* t)
 }
 bool CalcDFG::shouldBeProtected(Instruction* ptr)
 {
-	return NoCryptoFA::known[ptr]->hasToBeProtected;
+	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
+    return (MaskEverything && md->hasMetPlaintext) || md->hasToBeProtected;
 	//   return NoCryptoFA::known[ptr]->hasMetPlaintext;
 }
 bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
