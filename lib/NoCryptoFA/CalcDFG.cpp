@@ -235,10 +235,16 @@ void checkNeedsMasking(Instruction* ptr, NoCryptoFA::InstructionMetadata* md)
 	else { CalcPreTraits<Instruction>::needsMasking(ptr, md); }
 #undef CHECK_TYPE
 }
+void ClearMatrix(NoCryptoFA::InstructionMetadata* md){
+for(int i = 0; i < md->pre.size(); i++){
+md->pre[i].reset();
+}
+}
 void CalcDFG::calcPre(llvm::Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
 	bool changed = false;
+	ClearMatrix(md);
 #define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcPreTraits<type>::calc(changed,cast<type>(ptr),md)
 	if(0) {}
 	CHECK_TYPE(BinaryOperator);
