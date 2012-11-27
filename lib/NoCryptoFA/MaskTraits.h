@@ -292,6 +292,14 @@ post_sbox_s1= sbox_masked[s1]
 
 };
 template <>
+struct MaskTraits<StoreInst> {
+    public:
+        static bool replaceWithMasked(StoreInst* ptr, NoCryptoFA::InstructionMetadata* md) {
+            //Non mascherabile.
+            return false;
+        }
+};
+template <>
 struct MaskTraits<LoadInst> {
 	public:
 		static bool replaceWithMasked(LoadInst* ptr, NoCryptoFA::InstructionMetadata* md) {
