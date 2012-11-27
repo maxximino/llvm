@@ -16,6 +16,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/NoCryptoFA/All.h>
 #include <llvm/Support/CommandLine.h>
+#include <llvm/IntrinsicInst.h>
 
 using namespace llvm;
 using namespace std;
@@ -177,8 +178,11 @@ void InstructionReplace::phase1(llvm::Module& M)
 		    FE = F->end();
 		    BB != FE;
 		    ++BB) {
+				    TaggedData& td = getAnalysis<TaggedData>(*F);
+				if(!td.functionMarked(F)){continue;}
 			CalcDFG& cd = getAnalysis<CalcDFG>(*F);
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
+                if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
 				if(!cd.shouldBeProtected(i)) { continue; }
 				NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[i];
 				if(md->origin != NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM) { continue; }
@@ -228,6 +232,8 @@ void InstructionReplace::phase2(llvm::Module& M)
 		    FE = F->end();
 		    BB != FE;
 		    ++BB) {
+			    TaggedData& td = getAnalysis<TaggedData>(*F);
+				if(!td.functionMarked(F)){continue;}
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
 				NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[i];
 				if(!md->hasBeenMasked) { continue; }
@@ -270,6 +276,7 @@ bool InstructionReplace::runOnModule(llvm::Module& M)
 void InstructionReplace::getAnalysisUsage(llvm::AnalysisUsage& AU) const
 {
 	AU.addRequired<DominatorTree>();
+	AU.addRequired<TaggedData>();
 	AU.addRequired<CalcDFG>();
 }
 

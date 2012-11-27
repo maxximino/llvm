@@ -42,7 +42,6 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 {
 	keyLatestPos = 0;
 	outLatestPos = 0;
-	cerr << "rOF " << Fun.getName().str() << endl;
 	instr_bs.clear();
 	endPoints.clear();
 	llvm::TaggedData& td = getAnalysis<TaggedData>();
@@ -106,7 +105,7 @@ llvm::NoCryptoFA::InstructionMetadata* CalcDFG::getMD(llvm::Instruction* ptr)
 #include <iostream>
 bitset<MAX_OUTBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr)
 {
-	Value* op;
+	Value* op=NULL;
 	if(isa<StoreInst>(ptr)) {
 		StoreInst* s = cast<StoreInst>(ptr);
 		op = s->getPointerOperand();
@@ -157,7 +156,7 @@ bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
 	if(instr_bs.find(ptr) != instr_bs.end()) {
 		return instr_bs[ptr];
 	}
-	Type* t;
+	Type* t=NULL;
 	if(isa<llvm::GetElementPtrInst>(ptr)) {
 		GetElementPtrInst* gep = cast<GetElementPtrInst>(ptr);
 		if(!gep->hasAllConstantIndices()) {cerr << "GetOwnBitset on a non-constant GetElementPtr. Dow!" << endl;}
@@ -263,9 +262,9 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
 			//      raw_fd_ostream rerr(2,false);
 			//          rerr << "estremo:" << *ptr << "\n";
 			//siamo ad un estremo dell'albero
-			md->post_sum = getOutBitset(ptr);
+			//md->post_sum = getOutBitset(ptr);
 			//        cerr << "bs:" << md->post_sum << "\n";
-			md->post_min = md->post_sum;
+			//md->post_min = md->post_sum;
 		}
 	}
 }

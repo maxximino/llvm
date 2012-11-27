@@ -184,7 +184,6 @@ struct MaskTraits<GetElementPtrInst> {
 		static bool replaceWithMasked(GetElementPtrInst* ptr, NoCryptoFA::InstructionMetadata* md) {
             raw_fd_ostream rerr(2, false);
 			if(!md->isSbox) {rerr << *ptr; cerr << "! is sbox " << endl; return false;}
-			cerr << "WOW is sbox " << endl;
 			if(ptr->getNumIndices() != 2) {cerr << "ptr->getNumIndices() == " << ptr->getNumIndices() << endl; return false;}
 			if(!isa<ConstantInt>(ptr->getOperand(1))) {cerr << "first index is not constant" << endl; return false;}
 			if(!(cast<ConstantInt>(ptr->getOperand(1))->getZExtValue() == 0)) {cerr << "first index is not zero" << endl; return false;}
