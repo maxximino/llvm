@@ -1,6 +1,21 @@
 #include <algorithm>
 using namespace llvm;
+/* Save Our Souls per debugging:
+static void dump(NoCryptoFA::InstructionMetadata* md){
+for(bitset<MAX_KEYBITS> b: md->pre){
+cerr << b.count() << "-";
+}
+cerr << endl;
+}
+//name = shl12345
+static void debug(int pre,std::string name,NoCryptoFA::InstructionMetadata* md){
+    if(!md->my_instruction->getName().str().compare(name)){
+        cerr << name << " - " << (pre?"pre":"post")<< " - ";
+    dump(md);
+    }
 
+}
+*/
 template<typename T>
 static void Calc_Pre_BitwiseOr(bool& changed, T* ptr, NoCryptoFA::InstructionMetadata* md)
 {
