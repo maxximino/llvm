@@ -16,6 +16,10 @@ using namespace llvm;
 static cl::opt<unsigned int>
 SecurityMargin("nocryptofa-security-margin", cl::init(128), cl::ValueRequired,
                cl::desc("NoCryptoFA Security Margin (bits)"));
+static cl::opt<bool>
+MaskEverything("nocryptofa-mask-everything", cl::init(false), cl::ValueRequired,
+               cl::desc("NoCryptoFA Mask Everything"));
+
 template<int SIZE>
 void set_if_changed(bool& changed, bitset<SIZE>* var, bitset<SIZE> newvalue)
 {
@@ -38,7 +42,6 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 {
 	keyLatestPos = 0;
 	outLatestPos = 0;
-	cerr << "rOF " << Fun.getName().str() << endl;
 	instr_bs.clear();
 	endPoints.clear();
 	llvm::TaggedData& td = getAnalysis<TaggedData>();
@@ -63,7 +66,7 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 				int size = getOperandSize(I);
 				NoCryptoFA::known[I]->pre.resize(size);
 				for(int i = 0; i < size; ++i) {
-					NoCryptoFA::known[I]->pre[i] = bitset<MAX_KEYBITS>(0);
+					NoCryptoFA::known[I]->pre[i].reset();
 				}
 			}
 		}
@@ -102,7 +105,7 @@ llvm::NoCryptoFA::InstructionMetadata* CalcDFG::getMD(llvm::Instruction* ptr)
 #include <iostream>
 bitset<MAX_OUTBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr)
 {
-	Value* op;
+	Value* op=NULL;
 	if(isa<StoreInst>(ptr)) {
 		StoreInst* s = cast<StoreInst>(ptr);
 		op = s->getPointerOperand();
@@ -112,6 +115,7 @@ bitset<MAX_OUTBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr)
 	} else if(isa<CallInst>(ptr)) {
 		op = ptr;
 		cerr << "La chiave passa ad una CALL.... warn!\n";
+		abort();
 	} else {
 		raw_fd_ostream rerr(2, false);
 		rerr << *ptr;
@@ -143,7 +147,8 @@ int CalcDFG::getOperandSize(llvm::Type* t)
 }
 bool CalcDFG::shouldBeProtected(Instruction* ptr)
 {
-	return NoCryptoFA::known[ptr]->hasToBeProtected;
+	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
+    return (MaskEverything && md->hasMetPlaintext) || md->hasToBeProtected;
 	//   return NoCryptoFA::known[ptr]->hasMetPlaintext;
 }
 bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
@@ -152,7 +157,7 @@ bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
 	if(instr_bs.find(ptr) != instr_bs.end()) {
 		return instr_bs[ptr];
 	}
-	Type* t;
+	Type* t=NULL;
 	if(isa<llvm::GetElementPtrInst>(ptr)) {
 		GetElementPtrInst* gep = cast<GetElementPtrInst>(ptr);
 		if(!gep->hasAllConstantIndices()) {cerr << "GetOwnBitset on a non-constant GetElementPtr. Dow!" << endl;}
@@ -231,10 +236,16 @@ void checkNeedsMasking(Instruction* ptr, NoCryptoFA::InstructionMetadata* md)
 	else { CalcPreTraits<Instruction>::needsMasking(ptr, md); }
 #undef CHECK_TYPE
 }
+void sbianca(NoCryptoFA::InstructionMetadata* md){
+for(int i = 0; i < md->pre.size(); i++){
+md->pre[i].reset();
+}
+}
 void CalcDFG::calcPre(llvm::Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
 	bool changed = false;
+	sbianca(md);
 #define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcPreTraits<type>::calc(changed,cast<type>(ptr),md)
 	if(0) {}
 	CHECK_TYPE(BinaryOperator);
@@ -258,9 +269,9 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
 			//      raw_fd_ostream rerr(2,false);
 			//          rerr << "estremo:" << *ptr << "\n";
 			//siamo ad un estremo dell'albero
-			md->post_sum = getOutBitset(ptr);
+			//md->post_sum = getOutBitset(ptr);
 			//        cerr << "bs:" << md->post_sum << "\n";
-			md->post_min = md->post_sum;
+			//md->post_min = md->post_sum;
 		}
 	}
 }

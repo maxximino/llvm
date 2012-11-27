@@ -1,16 +1,37 @@
 #include <algorithm>
 using namespace llvm;
+/* Save Our Souls per debugging:
+static void dump(NoCryptoFA::InstructionMetadata* md){
+for(bitset<MAX_KEYBITS> b: md->pre){
+cerr << b.count() << "-";
+}
+cerr << endl;
+}
+//name = shl12345
+static void debug(int pre,std::string name,NoCryptoFA::InstructionMetadata* md){
+    if(!md->my_instruction->getName().str().compare(name)){
+        cerr << name << " - " << (pre?"pre":"post")<< " - ";
+    dump(md);
+    }
 
+}
+*/
 template<typename T>
 static void Calc_Pre_BitwiseOr(bool& changed, T* ptr, NoCryptoFA::InstructionMetadata* md)
 {
+	bitset<MAX_KEYBITS> tmp;
+	changed=true;
 	for(User::const_op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
 		if(Instruction* _it = dyn_cast<Instruction>(*it)) {
 			int size = std::min(NoCryptoFA::known[_it]->pre.size(), md->pre.size());
 			for(int i = 0; i < size; ++i) {
-				set_if_changed<MAX_KEYBITS>(changed, &(md->pre[i]), md->pre[i] | NoCryptoFA::known[_it]->pre[i]);
+			//	set_if_changed<MAX_KEYBITS>(changed, &(md->pre[i]), md->pre[i] | NoCryptoFA::known[_it]->pre[i]);
+				 tmp =  md->pre[i] | NoCryptoFA::known[_it]->pre[i];
+				md->pre[i] = tmp;
 				if(NoCryptoFA::known[_it]->own.any()) {
-					set_if_changed<MAX_KEYBITS>(changed, &(md->pre[i]), md->pre[i] | NoCryptoFA::known[_it]->own);
+			//		set_if_changed<MAX_KEYBITS>(changed, &(md->pre[i]), md->pre[i] | NoCryptoFA::known[_it]->own);
+					tmp = md->pre[i] | NoCryptoFA::known[_it]->own;
+					md->pre[i]=tmp;
 				}
 			}
 		}
@@ -67,14 +88,14 @@ static void ShiftKeyBitset(int direction, unsigned int idx, bool& changed, NoCry
 	unsigned int maxcp = (md->pre.size() - idx);
 	if(direction) {
 		//a sinistra
-		for(unsigned int i = 0; i < maxcp; i++) { tmp[i] = md->pre[i + idx]; }
-		for(unsigned int i = 0; i < idx; i++) { tmp[maxcp + i] = bitset<MAX_KEYBITS>(0); }
+		for(unsigned int i = 0; i < maxcp; i++) { tmp[i].reset(); tmp[i] |= md->pre[i + idx]; }
+		for(unsigned int i = 0; i < idx; i++) { tmp[maxcp+i].reset(); tmp[maxcp + i] |= bitset<MAX_KEYBITS>(0); }
 	} else {
 		//a destra
-		for(unsigned int i = 0; i < idx; i++) { tmp[i] = bitset<MAX_KEYBITS>(0); }
-		for(unsigned int i = 0; i < maxcp; i++) { tmp[idx + i] = md->pre[i]; }
+		for(unsigned int i = 0; i < idx; i++) { tmp[i].reset(); tmp[i] |= bitset<MAX_KEYBITS>(0); }
+		for(unsigned int i = 0; i < maxcp; i++) { tmp[idx+i].reset(); tmp[idx + i] |= md->pre[i]; }
 	}
-	for(unsigned int i = 0; i < md->pre.size(); i++) { md->pre[i] = tmp[i]; }
+	for(unsigned int i = 0; i < md->pre.size(); i++) { md->pre[i].reset(); md->pre[i] |= tmp[i]; }
 	changed = true; //dovrei confrontare....ne val la pena? TBD
 }
 #define is_bit_set(what,num) ((what) & (1<<(num)))
@@ -108,7 +129,7 @@ static void Calc_Pre_And(bool& changed, BinaryOperator* ptr, NoCryptoFA::Instruc
 }
 static void Calc_Pre_Shift(bool& changed, BinaryOperator* ptr, NoCryptoFA::InstructionMetadata* md)
 {
-	Value* v_idx = ptr->getOperand(1);
+Value* v_idx = ptr->getOperand(1);
 	if(!isa<ConstantInt>(v_idx)) { cerr << "Shift by a non-constant index. Results undefined."; return; }
 	ConstantInt* ci = cast<ConstantInt>(v_idx);
 	unsigned long idx = ci->getLimitedValue();
@@ -123,6 +144,7 @@ static void Calc_Pre_Shift(bool& changed, BinaryOperator* ptr, NoCryptoFA::Instr
 
 static void Calc_Pre_Extend(bool& changed, CastInst* ptr, NoCryptoFA::InstructionMetadata* md)
 {
+	changed=true;
 	Calc_Pre_BitwiseOr(changed, ptr, md);
 	int from = CalcDFG::getOperandSize(ptr->getSrcTy());
 	int to = CalcDFG::getOperandSize(ptr->getDestTy());

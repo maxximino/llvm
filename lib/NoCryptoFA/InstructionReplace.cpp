@@ -16,6 +16,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/NoCryptoFA/All.h>
 #include <llvm/Support/CommandLine.h>
+#include <llvm/IntrinsicInst.h>
 
 using namespace llvm;
 using namespace std;
@@ -153,7 +154,7 @@ vector<Value*> MaskValue(Value* ptr, Instruction* relativepos)
 	    */
     vector<Value*> v;
     llvm::Value* latestXor = ptr;
-    for(int i = 0; i < MaskingOrder; i++){
+    for(unsigned int i = 0; i < MaskingOrder; i++){
         llvm::Value* rnd = ib.CreateCall(&rand);
         v.push_back(rnd);
         annota(rnd, "ins_maschera");
@@ -177,8 +178,11 @@ void InstructionReplace::phase1(llvm::Module& M)
 		    FE = F->end();
 		    BB != FE;
 		    ++BB) {
+				    TaggedData& td = getAnalysis<TaggedData>(*F);
+				if(!td.functionMarked(F)){continue;}
 			CalcDFG& cd = getAnalysis<CalcDFG>(*F);
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
+                if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
 				if(!cd.shouldBeProtected(i)) { continue; }
 				NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[i];
 				if(md->origin != NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM) { continue; }
@@ -189,6 +193,7 @@ void InstructionReplace::phase1(llvm::Module& M)
 				CHECK_TYPE(CastInst);
 				CHECK_TYPE(GetElementPtrInst);
 				CHECK_TYPE(LoadInst);
+                CHECK_TYPE(StoreInst);
 				CHECK_TYPE(SelectInst);
 				else { masked = MaskTraits<Instruction>::replaceWithMasked(i, md); }
 #undef CHECK_TYPE
@@ -207,7 +212,7 @@ void InstructionReplace::Unmask(Instruction* ptr)
 	llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
 	SetInsertionPoint(true, ib, ptr); //NO, dopo l'ultimo masked
     llvm::Value*  v = md->MaskedValues[0];
-    for(int i = 1; i <= MaskingOrder; i++){
+    for(unsigned int i = 1; i <= MaskingOrder; i++){
       v = ib.CreateXor(v, md->MaskedValues[i]);
       annota(v, "rimozi_maschera");
       BuildMetadata(v, ptr, NoCryptoFA::InstructionMetadata::REMOVE_MASK);
@@ -227,6 +232,8 @@ void InstructionReplace::phase2(llvm::Module& M)
 		    FE = F->end();
 		    BB != FE;
 		    ++BB) {
+			    TaggedData& td = getAnalysis<TaggedData>(*F);
+				if(!td.functionMarked(F)){continue;}
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
 				NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[i];
 				if(!md->hasBeenMasked) { continue; }
@@ -254,7 +261,12 @@ void InstructionReplace::phase3(llvm::Module& M)
 			}
 		}
 		//assert(delcnt > 0 && "Altrimenti resto in un loop infinito!");
-		if(delcnt == 0) { cerr << "Some unmasked instructions survived :( " << endl;  break;}
+		if(delcnt == 0) { cerr <<  deletionqueue.size() << " unmasked instructions survived :( They are:" << endl;
+			
+	for(Instruction * survivor : deletionqueue) {
+	 errs() << *survivor << "\n";
+	 }
+			break;}
 	}
 }
 
@@ -269,6 +281,7 @@ bool InstructionReplace::runOnModule(llvm::Module& M)
 void InstructionReplace::getAnalysisUsage(llvm::AnalysisUsage& AU) const
 {
 	AU.addRequired<DominatorTree>();
+	AU.addRequired<TaggedData>();
 	AU.addRequired<CalcDFG>();
 }
 

@@ -42,23 +42,23 @@ struct MaskTraits<BinaryOperator> {
 						 */
 #define I(var,val) var=val; BuildMetadata(var, ptr, NoCryptoFA::InstructionMetadata::AND_MASKED)
                         Value* z[MaskingOrder+1][MaskingOrder+1];
-                        for(int j = 0; j<= MaskingOrder; j++){
-                            for(int i = 0; i < j; i++){
+                        for(unsigned int j = 0; j<= MaskingOrder; j++){
+                            for(unsigned int i = 0; i < j; i++){
                                 I(z[i][j],ib.CreateCall(&rand));
                             }
                         }
                         Value *t1,*t2,*t3;
-                        for(int j = 0; j<= MaskingOrder; j++){
-                            for(int i = j+1; i <= MaskingOrder; i++){
+                        for(unsigned int j = 0; j<= MaskingOrder; j++){
+                            for(unsigned int i = j+1; i <= MaskingOrder; i++){
                                 I(t1,ib.CreateAnd(op1[j],op2[i]));
                                 I(t2,ib.CreateAnd(op1[i],op2[j]));
                                 I(t3,ib.CreateXor(z[j][i],t1));
                                 I(z[i][j],ib.CreateXor(t3,t2));
                             }
                         }
-                        for(int i = 0; i<= MaskingOrder; i++){
+                        for(unsigned int i = 0; i<= MaskingOrder; i++){
                                 I(t1,ib.CreateAnd(op1[i],op2[i]));
-                                for(int k = 0; k<= MaskingOrder; k++){
+                                for(unsigned int k = 0; k<= MaskingOrder; k++){
                                     if(i==k) continue;
                                     I(t1,ib.CreateXor(t1,z[i][k]));
                                 }
@@ -85,7 +85,7 @@ struct MaskTraits<BinaryOperator> {
                         llvm::Function& randF = GetRandomFn(ptr->getParent()->getParent()->getParent(), size);
                         Value* v_op1=op1[MaskingOrder];
                         Value* v_op2=op2[MaskingOrder];
-                        for(int o = 0; o< MaskingOrder; o++){
+                        for(unsigned int o = 0; o< MaskingOrder; o++){
                             llvm::Value* rand = ib.CreateCall(&randF);
                             BuildMetadata(rand, ptr, NoCryptoFA::InstructionMetadata::XOR_MASKED);
                             Value* t1 = ib.CreateXor(op1[o], rand);
@@ -114,7 +114,7 @@ struct MaskTraits<BinaryOperator> {
 				case Instruction::LShr:
 					if(isa<ConstantInt>(ptr->getOperand(1))) {
 						vector<Value*> op = MaskValue(ptr->getOperand(0), ptr);
-                        for(int o = 0; o<= MaskingOrder; o++){
+                        for(unsigned int o = 0; o<= MaskingOrder; o++){
                             md->MaskedValues.push_back(ib.CreateBinOp(ptr->getOpcode(), op[o], ptr->getOperand(1)));
                             BuildMetadata(md->MaskedValues[o], ptr, NoCryptoFA::InstructionMetadata::SHIFT_MASKED);
                         }
@@ -154,7 +154,7 @@ struct MaskTraits<CastInst> {
 						llvm::IRBuilder<> ib = llvm::IRBuilder<>(i->getContext());
 						ib.SetInsertPoint(i);
 						vector<Value*> op = MaskValue(i->getOperand(0), i);
-                        for(int o = 0; o<= MaskingOrder; o++){
+                        for(unsigned int o = 0; o<= MaskingOrder; o++){
                             md->MaskedValues.push_back(ib.CreateCast(i->getOpcode(), op[o], i->getDestTy()));
                             BuildMetadata(md->MaskedValues[o], i, NoCryptoFA::InstructionMetadata::CAST_MASKED);
 
@@ -184,7 +184,6 @@ struct MaskTraits<GetElementPtrInst> {
 		static bool replaceWithMasked(GetElementPtrInst* ptr, NoCryptoFA::InstructionMetadata* md) {
             raw_fd_ostream rerr(2, false);
 			if(!md->isSbox) {rerr << *ptr; cerr << "! is sbox " << endl; return false;}
-			cerr << "WOW is sbox " << endl;
 			if(ptr->getNumIndices() != 2) {cerr << "ptr->getNumIndices() == " << ptr->getNumIndices() << endl; return false;}
 			if(!isa<ConstantInt>(ptr->getOperand(1))) {cerr << "first index is not constant" << endl; return false;}
 			if(!(cast<ConstantInt>(ptr->getOperand(1))->getZExtValue() == 0)) {cerr << "first index is not zero" << endl; return false;}
@@ -197,14 +196,14 @@ struct MaskTraits<GetElementPtrInst> {
 #define I(var,val) do {var=val; BuildMetadata(var, ptr, NoCryptoFA::InstructionMetadata::SBOX_MASKED);}while(0)
             Value* v[MaskingOrder+1];
             Type* basetype = ptr->getPointerOperand()->getType()->getPointerElementType()->getSequentialElementType();
-            for(int i = 0; i <= MaskingOrder;i++)  I(v[i],ib.CreateAlloca(basetype)); // Far dimagrire lo stack.
+            for(unsigned int i = 0; i <= MaskingOrder;i++)  I(v[i],ib.CreateAlloca(basetype)); // Far dimagrire lo stack.
             std::vector<Value*> parameters;
             parameters.push_back(ptr->getPointerOperand());
-            for(int i = 0; i <= MaskingOrder;i++) parameters.push_back(idx[i]);
-            for(int i = 0; i <= MaskingOrder;i++) parameters.push_back(v[i]);
+            for(unsigned int i = 0; i <= MaskingOrder;i++) parameters.push_back(idx[i]);
+            for(unsigned int i = 0; i <= MaskingOrder;i++) parameters.push_back(v[i]);
             Value* t;
             I(t,ib.CreateCall(&msk,llvm::ArrayRef<Value*>(parameters)));
-            for(int i = 0; i <= MaskingOrder;i++) {
+            for(unsigned int i = 0; i <= MaskingOrder;i++) {
                 I(t,ib.CreateLoad(v[i]));
                 md->MaskedValues.push_back(t);
             }
@@ -230,8 +229,8 @@ post_sbox_s1= sbox_masked[s1]
 			llvm::Constant* FunSym;
             std::vector<Type*> paramtypes;
             paramtypes.push_back(llvm::ArrayType::get(llvm::Type::getIntNTy(Ctx, size), 256)->getPointerTo()); //TODO non hardcoded il 256!
-            for(int i = 0; i <= MaskingOrder;i++) paramtypes.push_back(llvm::Type::getInt64Ty(Ctx)); //TODO riducibile?
-            for(int i = 0; i <= MaskingOrder;i++) paramtypes.push_back(llvm::Type::getIntNPtrTy(Ctx,size));
+            for(unsigned int i = 0; i <= MaskingOrder;i++) paramtypes.push_back(llvm::Type::getInt64Ty(Ctx)); //TODO riducibile?
+            for(unsigned int i = 0; i <= MaskingOrder;i++) paramtypes.push_back(llvm::Type::getIntNPtrTy(Ctx,size));
             llvm::FunctionType* ftype = llvm::FunctionType::get(llvm::Type::getVoidTy(Ctx),llvm::ArrayRef<Type*>(paramtypes),false);
             FunSym = Mod->getOrInsertFunction(ss.str(),ftype);
 			Fun = llvm::cast<llvm::Function>(FunSym);
@@ -240,8 +239,8 @@ post_sbox_s1= sbox_masked[s1]
 			sboxptr->setName("sboxptr");
             std::vector<Value*> inputshares;
             std::vector<Value*> outputshares;
-            for(int i = 0; i <= MaskingOrder;i++) inputshares.push_back(args++);
-            for(int i = 0; i <= MaskingOrder;i++) outputshares.push_back(args++);
+            for(unsigned int i = 0; i <= MaskingOrder;i++) inputshares.push_back(args++);
+            for(unsigned int i = 0; i <= MaskingOrder;i++) outputshares.push_back(args++);
             /*  %i.01 = phi i32 [ 0, %0 ], [ %3, %1 ]
 			  %2 = tail call i32 (...)* @getchar() nounwind
 			  %3 = add nsw i32 %i.01, 1
@@ -261,13 +260,13 @@ post_sbox_s1= sbox_masked[s1]
 			llvm::IRBuilder<> ib_fo = llvm::IRBuilder<>(FuncOut->getContext());
 			ib_fo.SetInsertPoint(FuncOut);
             vector<Value*> newshares;
-            for(int i = 0; i < MaskingOrder;i++) newshares.push_back(ib_entry.CreateCall(&rand));
+            for(unsigned int i = 0; i < MaskingOrder;i++) newshares.push_back(ib_entry.CreateCall(&rand));
 			Value* tmpsbox = ib_entry.CreateAlloca(llvm::Type::getIntNTy(Ctx, size), llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), 256, false));
 			ib_entry.CreateBr(ForBody);
 			PHINode* i_start = ib_for.CreatePHI(llvm::Type::getInt64Ty(Ctx), 2);
 			i_start->addIncoming(llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), 0, false), Entry);
             Value* idx = i_start;
-            for(int i = 0; i < MaskingOrder;i++) idx = ib_for.CreateXor(idx,inputshares[i]);
+            for(unsigned int i = 0; i < MaskingOrder;i++) idx = ib_for.CreateXor(idx,inputshares[i]);
             idx = ib_for.CreateAnd(idx,0xff); // non hardcoded!
             Value* newelptr = ib_for.CreateGEP(tmpsbox, idx);
 			vector<Value*> idxs;
@@ -276,7 +275,7 @@ post_sbox_s1= sbox_masked[s1]
 			Value* oldelptr = ib_for.CreateGEP(sboxptr, llvm::ArrayRef<Value*>(idxs));
 			Value* realval = ib_for.CreateLoad(oldelptr);
             Value* newval=realval;
-            for(int i = 0; i < MaskingOrder;i++) newval = ib_for.CreateXor(newval,newshares[i]);
+            for(unsigned int i = 0; i < MaskingOrder;i++) newval = ib_for.CreateXor(newval,newshares[i]);
             ib_for.CreateStore(newval, newelptr);
 			Value* newi = ib_for.CreateAdd(i_start, llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), 1, false));
 			i_start->addIncoming(newi, ForBody);
@@ -285,11 +284,19 @@ post_sbox_s1= sbox_masked[s1]
             idx = ib_fo.CreateAnd(inputshares[MaskingOrder],0xff); // non hardcoded!
             Value* retptr = ib_fo.CreateGEP(tmpsbox, idx);
             newshares.push_back(ib_fo.CreateLoad(retptr));
-            for(int i = 0; i <= MaskingOrder;i++) ib_fo.CreateStore(newshares[i], outputshares[i]);
+            for(unsigned int i = 0; i <= MaskingOrder;i++) ib_fo.CreateStore(newshares[i], outputshares[i]);
 			ib_fo.CreateRetVoid();
 			return *Fun;
 		}
 
+};
+template <>
+struct MaskTraits<StoreInst> {
+    public:
+        static bool replaceWithMasked(StoreInst* ptr, NoCryptoFA::InstructionMetadata* md) {
+            //Non mascherabile.
+            return false;
+        }
 };
 template <>
 struct MaskTraits<LoadInst> {
@@ -299,7 +306,7 @@ struct MaskTraits<LoadInst> {
 			if(!llvm::NoCryptoFA::known[cast<Instruction>(ptr->getPointerOperand())]->isSbox) {return false;}
 			md->isSbox = true;
 			vector<Value*> idx = MaskValue(ptr->getPointerOperand(), ptr);
-            for(int i = 0; i<= MaskingOrder; i++){
+            for(unsigned int i = 0; i<= MaskingOrder; i++){
             md->MaskedValues.push_back(idx[i]);
             }
 			return true;
@@ -315,7 +322,7 @@ struct MaskTraits<SelectInst> {
             vector<Value*> vTrue = MaskValue(ptr->getTrueValue(), ptr);
             vector<Value*> vFalse = MaskValue(ptr->getFalseValue(), ptr);
             md->MaskedValues.clear();
-            for(int i = 0; i<= MaskingOrder; i++){
+            for(unsigned int i = 0; i<= MaskingOrder; i++){
                 md->MaskedValues.push_back(ib.CreateSelect(c[i], vTrue[i], vFalse[i]));
                 BuildMetadata(md->MaskedValues[i], ptr, NoCryptoFA::InstructionMetadata::SELECT_MASKED);
             }
