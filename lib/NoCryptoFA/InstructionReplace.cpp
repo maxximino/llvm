@@ -261,7 +261,12 @@ void InstructionReplace::phase3(llvm::Module& M)
 			}
 		}
 		//assert(delcnt > 0 && "Altrimenti resto in un loop infinito!");
-		if(delcnt == 0) { cerr << "Some unmasked instructions survived :( " << endl;  break;}
+		if(delcnt == 0) { cerr <<  deletionqueue.size() << " unmasked instructions survived :( They are:" << endl;
+			
+	for(Instruction * survivor : deletionqueue) {
+	 errs() << *survivor << "\n";
+	 }
+			break;}
 	}
 }
 
