@@ -463,6 +463,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(linkonce_odr);
   KEYWORD(linkonce_odr_auto_hide);
   KEYWORD(weak);
+  KEYWORD(maskedcopy);
   KEYWORD(weak_odr);
   KEYWORD(appending);
   KEYWORD(dllimport);

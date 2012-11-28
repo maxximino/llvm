@@ -945,6 +945,7 @@ bool LLParser::ParseOptionalAttrs(AttrBuilder &B, unsigned AttrKind) {
     case lltok::kw_readonly:        B.addAttribute(Attributes::ReadOnly); break;
     case lltok::kw_inlinehint:      B.addAttribute(Attributes::InlineHint); break;
     case lltok::kw_alwaysinline:    B.addAttribute(Attributes::AlwaysInline); break;
+    case lltok::kw_maskedcopy:      B.addAttribute(Attributes::MaskedCopy); break;
     case lltok::kw_optsize:         B.addAttribute(Attributes::OptimizeForSize); break;
     case lltok::kw_ssp:             B.addAttribute(Attributes::StackProtect); break;
     case lltok::kw_sspreq:          B.addAttribute(Attributes::StackProtectReq); break;
@@ -1000,6 +1001,7 @@ bool LLParser::ParseOptionalAttrs(AttrBuilder &B, unsigned AttrKind) {
     case lltok::kw_readonly:
     case lltok::kw_noinline:
     case lltok::kw_alwaysinline:
+    case lltok::kw_maskedcopy:
     case lltok::kw_optsize:
     case lltok::kw_ssp:
     case lltok::kw_sspreq:

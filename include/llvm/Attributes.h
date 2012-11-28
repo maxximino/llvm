@@ -61,6 +61,7 @@ public:
     ForceSizeOpt,          ///< Function must be optimized for size first
     InlineHint,            ///< Source said inlining was desirable
     InReg,                 ///< Force argument to be passed in register
+    MaskedCopy,		   ///< Generate a fully masked copy of the function
     Naked,                 ///< Naked function
     Nest,                  ///< Nested function static chain
     NoAlias,               ///< Considered to not alias after call
@@ -146,6 +147,7 @@ public:
       hasAttribute(Attributes::StackProtect) ||
       hasAttribute(Attributes::StackProtectReq) ||
       hasAttribute(Attributes::NoRedZone) ||
+      hasAttribute(Attributes::MaskedCopy) ||
       hasAttribute(Attributes::NoImplicitFloat) ||
       hasAttribute(Attributes::Naked) ||
       hasAttribute(Attributes::InlineHint) ||
@@ -266,7 +268,8 @@ public:
       .removeAttribute(Attributes::NonLazyBind)
       .removeAttribute(Attributes::ReturnsTwice)
       .removeAttribute(Attributes::AddressSafety)
-      .removeAttribute(Attributes::ForceSizeOpt);
+      .removeAttribute(Attributes::ForceSizeOpt)
+      .removeAttribute(Attributes::MaskedCopy);
   }
 
   uint64_t Raw() const { return Bits; }

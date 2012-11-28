@@ -53,6 +53,7 @@ namespace lltok {
     kw_tail,
     kw_target,
     kw_triple,
+    kw_maskedcopy,
     kw_unwind,
     kw_deplibs,
     kw_datalayout,

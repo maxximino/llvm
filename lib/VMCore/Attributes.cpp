@@ -203,6 +203,8 @@ std::string Attributes::getAsString() const {
     Result += "address_safety ";
   if (hasAttribute(Attributes::ForceSizeOpt))
     Result += "forcesizeopt ";
+   if (hasAttribute(Attributes::MaskedCopy))
+    Result += "maskedcopy ";
   if (hasAttribute(Attributes::StackAlignment)) {
     Result += "alignstack(";
     Result += utostr(getStackAlignment());
@@ -327,6 +329,7 @@ uint64_t AttributesImpl::getAttrMask(uint64_t Val) {
   case Attributes::NonLazyBind:     return 1U << 31;
   case Attributes::AddressSafety:   return 1ULL << 32;
   case Attributes::ForceSizeOpt:    return 1ULL << 33;
+  case Attributes::MaskedCopy:	    return 1ULL << 34;
   }
   llvm_unreachable("Unsupported attribute type");
 }
