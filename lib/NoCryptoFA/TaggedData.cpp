@@ -17,6 +17,9 @@ TaggedData* llvm::createTaggedDataPass()
 {
 	return new TaggedData();
 }
+void TaggedData::markFunction(Function* ptr){
+	markedfunctions.insert(ptr);
+}
 bool TaggedData::functionMarked(Function* ptr)
 {
 	return (markedfunctions.count(ptr) > 0);
@@ -67,19 +70,9 @@ static bool hasMetaMark(Instruction* ptr, std::string mark)
 	return (marks.find(mark) != marks.npos);
 }
 
-llvm::NoCryptoFA::InstructionMetadata* getNewMD(llvm::Instruction* ptr)
-{
-	llvm::NoCryptoFA::InstructionMetadata* md;
-	if(NoCryptoFA::known.find(ptr) != NoCryptoFA::known.end()) {
-		md = NoCryptoFA::known[ptr];
-	} else {
-		md = new llvm::NoCryptoFA::InstructionMetadata(ptr);
-	}
-	return md;
-}
 void TaggedData::infect(llvm::Instruction* ptr)
 {
-	llvm::NoCryptoFA::InstructionMetadata* md = getNewMD(ptr);
+    llvm::NoCryptoFA::InstructionMetadata* md =llvm::NoCryptoFA::InstructionMetadata::getNewMD(ptr);
 	hasmd = true;
 	if(!md->isAKeyOperation) {
 		md->isAKeyOperation = true;
@@ -104,7 +97,7 @@ void TaggedData::infect(llvm::Instruction* ptr)
 
 void TaggedData::infectPlain(llvm::Instruction* ptr)
 {
-	llvm::NoCryptoFA::InstructionMetadata* md = getNewMD(ptr);
+    llvm::NoCryptoFA::InstructionMetadata* md = llvm::NoCryptoFA::InstructionMetadata::getNewMD(ptr);
 	hasmd = true;
 	if(!md->hasMetPlaintext) {
 		md->hasMetPlaintext = true;
@@ -117,7 +110,7 @@ void TaggedData::infectPlain(llvm::Instruction* ptr)
 }
 void TaggedData::infectSbox(llvm::Instruction* ptr)
 {
-	llvm::NoCryptoFA::InstructionMetadata* md = getNewMD(ptr);
+    llvm::NoCryptoFA::InstructionMetadata* md = llvm::NoCryptoFA::InstructionMetadata::getNewMD(ptr);
 	if(md->isSbox) { return; }
 	md->isSbox = true;
 	hasmd = true;

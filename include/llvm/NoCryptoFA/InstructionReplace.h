@@ -9,7 +9,7 @@ namespace llvm
 		public:
 			static char ID;
 
-			InstructionReplace() : llvm::ModulePass(ID), deletionqueue() {
+            InstructionReplace() :llvm::ModulePass(ID), deletionqueue() {
 				initializeInstructionReplacePass(*PassRegistry::getPassRegistry());
 			}
 
@@ -20,13 +20,16 @@ namespace llvm
 			virtual const char* getPassName() const {
 				return "InstructionReplace";
 			}
-
+            static std::map<Function*,Function*> maskedfn;
 		private:
 			std::set<Instruction*> deletionqueue;
+
 			void fixNextUses(Value* from, Value* to);
 			void phase1(llvm::Module& M);
 			void phase2(llvm::Module& M);
 			void phase3(llvm::Module& M);
+			void cloneFunctions(llvm::Module& M);
+			void insertStores(llvm::Module& M);
 			void Unmask(Instruction* ptr);
 
 	};

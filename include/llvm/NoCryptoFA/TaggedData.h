@@ -44,7 +44,8 @@ namespace llvm
 			    SHIFT_MASKED,
 			    SBOX_MASKED,
 			    SELECT_MASKED,
-			    REMOVE_MASK
+			    REMOVE_MASK,
+			    MASKED_FUNCTION
 			};
 			bool isAKeyOperation;
 			bool isAKeyStart;
@@ -62,19 +63,37 @@ namespace llvm
 			std::vector<Value*> MaskedValues;
 			StatisticInfo pre_stats;
 			InstructionMetadata(Instruction* ptr): pre(0), own(0), post_sum(0), post_min(0), MaskedValues(0), pre_stats() {
-				isAKeyOperation = false;
-				isAKeyStart = false;
-				isSbox = false;
-				hasToBeProtected = false;
-				hasBeenMasked = false;
-				hasMetPlaintext = false;
-				post_sum.reset();
-				post_min.set();
-				my_instruction = ptr;
-				unmasked_value = NULL;
+                init();
+                my_instruction = ptr;
 				known[ptr] = this;
-				origin = InstructionMetadata::ORIGINAL_PROGRAM;
 			}
+            InstructionMetadata(){
+            init();
+            }
+            static llvm::NoCryptoFA::InstructionMetadata* getNewMD(llvm::Instruction* ptr)
+            {
+                llvm::NoCryptoFA::InstructionMetadata* md;
+                if(NoCryptoFA::known.find(ptr) != NoCryptoFA::known.end()) {
+                    md = NoCryptoFA::known[ptr];
+                } else {
+                    md = new llvm::NoCryptoFA::InstructionMetadata(ptr);
+                }
+                return md;
+            }
+        private: void init(){
+            origin = InstructionMetadata::ORIGINAL_PROGRAM;
+            unmasked_value = NULL;
+            isAKeyOperation = false;
+            isAKeyStart = false;
+            isSbox = false;
+            hasToBeProtected = false;
+            hasBeenMasked = false;
+            hasMetPlaintext = false;
+            post_sum.reset();
+            post_min.set();
+
+        }
+
 		};
 
 	}
@@ -92,6 +111,7 @@ namespace llvm
 
 			virtual bool runOnFunction(llvm::Function& Fun);
 			virtual bool isMarkedAsKey(llvm::Instruction* ptr);
+			virtual void markFunction(llvm::Function* ptr);
 			virtual bool isMarkedAsStatus(llvm::Instruction* ptr);
 			virtual void getAnalysisUsage(llvm::AnalysisUsage& AU) const;
 			virtual const char* getPassName() const {

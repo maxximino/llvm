@@ -150,7 +150,7 @@ struct MaskTraits<CastInst> {
 				case Instruction::Trunc:
 				case Instruction::ZExt:
 				case Instruction::SExt:
-				case Instruction::BitCast: {
+                case Instruction::BitCast: {
 						llvm::IRBuilder<> ib = llvm::IRBuilder<>(i->getContext());
 						ib.SetInsertPoint(i);
 						vector<Value*> op = MaskValue(i->getOperand(0), i);
@@ -182,17 +182,60 @@ template <>
 struct MaskTraits<GetElementPtrInst> {
 	public:
 		static bool replaceWithMasked(GetElementPtrInst* ptr, NoCryptoFA::InstructionMetadata* md) {
-            raw_fd_ostream rerr(2, false);
-			if(!md->isSbox) {rerr << *ptr; cerr << "! is sbox " << endl; return false;}
-			if(ptr->getNumIndices() != 2) {cerr << "ptr->getNumIndices() == " << ptr->getNumIndices() << endl; return false;}
-			if(!isa<ConstantInt>(ptr->getOperand(1))) {cerr << "first index is not constant" << endl; return false;}
-			if(!(cast<ConstantInt>(ptr->getOperand(1))->getZExtValue() == 0)) {cerr << "first index is not zero" << endl; return false;}
+            if(!verify(ptr,md)) return false;
 			md->isSbox = true;
-			int size = ptr->getType()->getPointerElementType()->getScalarSizeInBits();
-			Function& msk = GetMaskingFn(ptr->getParent()->getParent()->getParent(), size);
-			llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
-			ib.SetInsertPoint(ptr);
-			vector<Value*> idx = MaskValue(ptr->getOperand(2), ptr);
+            if(MaskingOrder <= 2){
+                replaceWithBoxRecalc(ptr,md);
+            }
+            else{
+                if(haveEquivalentFunction(ptr,md)){
+                    replaceWithComputational(ptr,md);
+                }
+                else{
+                    errs() << "Sorry, this is not safe. Provide a function called " << ptr->getOperand(0)->getName() << "_computational (marked with maskedcopy) or lower the masking order.\n";
+                    abort();
+                }
+            }
+			return true;
+		}
+            static void replaceWithComputational(GetElementPtrInst* ptr, NoCryptoFA::InstructionMetadata* md){
+                Module* mod = ptr->getParent()->getParent()->getParent();
+                stringstream ss("");
+                ss << "__masked__" << ptr->getOperand(0)->getName().str() << "_computational";
+                Function* fp = mod->getFunction(ss.str());
+                Type* paramType = fp->getFunctionType()->getParamType(0);
+                llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
+                ib.SetInsertPoint(ptr);
+                Value* prevInst = ptr->getOperand(2);
+                if(!paramType->isIntegerTy(prevInst->getType()->getIntegerBitWidth())){
+                    if(isa<CastInst>(prevInst)){
+                        CastInst* ci = cast<CastInst>(prevInst);
+                        prevInst=ci->getOperand(0);
+                    }
+                }
+                vector<Value*> idx = MaskValue(prevInst, ptr);
+
+    #define I(var,val) do {var=val; BuildMetadata(var, ptr, NoCryptoFA::InstructionMetadata::SBOX_MASKED);}while(0)
+                Value* v[MaskingOrder+1];
+                Type* basetype = ptr->getPointerOperand()->getType()->getPointerElementType()->getSequentialElementType();
+                for(unsigned int i = 0; i <= MaskingOrder;i++)  I(v[i],ib.CreateAlloca(basetype)); // Far dimagrire lo stack.
+                std::vector<Value*> parameters;
+                for(unsigned int i = 0; i <= MaskingOrder;i++) parameters.push_back(idx[i]);
+                for(unsigned int i = 0; i <= MaskingOrder;i++) parameters.push_back(v[i]);
+                Value* t;
+                I(t,ib.CreateCall(fp,llvm::ArrayRef<Value*>(parameters)));
+                for(unsigned int i = 0; i <= MaskingOrder;i++) {
+                    I(t,ib.CreateLoad(v[i]));
+                    md->MaskedValues.push_back(t);
+                }
+    #undef I
+            }
+        static void replaceWithBoxRecalc(GetElementPtrInst* ptr, NoCryptoFA::InstructionMetadata* md){
+            int size = ptr->getType()->getPointerElementType()->getScalarSizeInBits();
+            Function& msk = GetMaskingFn(ptr->getParent()->getParent()->getParent(), size);
+            llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
+            ib.SetInsertPoint(ptr);
+            vector<Value*> idx = MaskValue(ptr->getOperand(2), ptr);
 #define I(var,val) do {var=val; BuildMetadata(var, ptr, NoCryptoFA::InstructionMetadata::SBOX_MASKED);}while(0)
             Value* v[MaskingOrder+1];
             Type* basetype = ptr->getPointerOperand()->getType()->getPointerElementType()->getSequentialElementType();
@@ -208,8 +251,23 @@ struct MaskTraits<GetElementPtrInst> {
                 md->MaskedValues.push_back(t);
             }
 #undef I
-			return true;
-		}
+        }
+        static bool verify(GetElementPtrInst* ptr, NoCryptoFA::InstructionMetadata* md){
+            raw_fd_ostream rerr(2, false);
+            if(!md->isSbox) {rerr << *ptr; cerr << "! is sbox " << endl; return false;}
+            if(ptr->getNumIndices() != 2) {cerr << "ptr->getNumIndices() == " << ptr->getNumIndices() << endl; return false;}
+            if(!isa<ConstantInt>(ptr->getOperand(1))) {cerr << "first index is not constant" << endl; return false;}
+            if(!(cast<ConstantInt>(ptr->getOperand(1))->getZExtValue() == 0)) {cerr << "first index is not zero" << endl; return false;}
+            return true;
+        }
+
+        static bool haveEquivalentFunction(GetElementPtrInst* ptr, NoCryptoFA::InstructionMetadata* md){
+            Module* mod = ptr->getParent()->getParent()->getParent();
+            stringstream ss("");
+            ss << "__masked__" << ptr->getOperand(0)->getName().str() << "_computational";
+            Function* fp = mod->getFunction(ss.str());
+            return fp != NULL;
+        }
 		static llvm::Function& GetMaskingFn(llvm::Module* Mod, int size) {
             /*
 post_sbox_s2 = rand_n1
@@ -289,6 +347,42 @@ post_sbox_s1= sbox_masked[s1]
 			return *Fun;
 		}
 
+};
+
+template <>
+struct MaskTraits<CallInst> {
+    public:
+        static bool replaceWithMasked(CallInst* ptr, NoCryptoFA::InstructionMetadata* md) {
+
+            if(ptr->getNumArgOperands() != 1) {cerr << "ptr->getNumArgOperands() != 1 but == " << ptr->getNumArgOperands() << endl; return false;}
+            if(!isa<IntegerType>(ptr->getArgOperand(0)->getType())) {cerr << "first argument is not integer" << endl; return false;}
+            if(!isa<IntegerType>(ptr->getType())) {cerr << "return value is not integer" << endl; return false;}
+            Function* origFn=ptr->getCalledFunction();
+            map<Function*,Function*>& maskedfn = llvm::InstructionReplace::maskedfn;
+            if(maskedfn.find(origFn) == maskedfn.end()){cerr << "There is not a masked equivalent of " << origFn->getName().str() << endl; return false;}
+            md->isSbox=true;
+            Function* newFn = maskedfn[origFn];
+            llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
+            ib.SetInsertPoint(ptr);
+            vector<Value*> argshares = MaskValue(ptr->getArgOperand(0), ptr);
+#define I(var,val) do {var=val; BuildMetadata(var, ptr, NoCryptoFA::InstructionMetadata::SBOX_MASKED);}while(0)
+
+            Value* v[MaskingOrder+1];
+            Type* basetype = ptr->getArgOperand(0)->getType();
+            for(unsigned int i = 0; i <= MaskingOrder;i++)  I(v[i],ib.CreateAlloca(basetype)); // Far dimagrire lo stack.
+            std::vector<Value*> parameters;
+            for(unsigned int i = 0; i <= MaskingOrder;i++) parameters.push_back(argshares[i]);
+            for(unsigned int i = 0; i <= MaskingOrder;i++) parameters.push_back(v[i]);
+            Value* t;
+            I(t,ib.CreateCall(newFn,llvm::ArrayRef<Value*>(parameters)));
+            for(unsigned int i = 0; i <= MaskingOrder;i++) {
+                I(t,ib.CreateLoad(v[i]));
+                md->MaskedValues.push_back(t);
+            }
+#undef I
+            return true;
+
+        }
 };
 template <>
 struct MaskTraits<StoreInst> {
