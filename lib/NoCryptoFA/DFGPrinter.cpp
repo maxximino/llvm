@@ -61,8 +61,8 @@ namespace llvm
 		                              const MyNodeType* Graph) {
 			if(Node->md) {
 				switch(Node->md->origin) { //Sta diventando piu spaghettoso di quanto sia giusto. Refactor?
-                    case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
-                        if(Node->hasToBeProtected) {
+					case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
+						if(Node->hasToBeProtected) {
 							return "style=filled,color=\"#f458f4\"";
 						} else if(Node->md->isAKeyOperation) {
 							return "style=filled,color=\"#58faf4\"";
@@ -315,7 +315,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 					cur->addChildren(it->second);
 				}
 				cur->md = td.getMD(i);
-                cur->hasToBeProtected = cd.shouldBeProtected(i);
+				cur->hasToBeProtected = cd.shouldBeProtected(i);
 				added = false;
 				if(isa<PHINode>(i)) {
 					PHINode* p = cast<PHINode>(i);
@@ -347,7 +347,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				}
 				if(!added) { me->addChildren(cur); }
 			}
-            outFile(F->getName().str().append(".dat"), instr_dump.str());
+			outFile(F->getName().str().append(".dat"), instr_dump.str());
 		}
 	}
 	return false;

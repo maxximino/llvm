@@ -38,7 +38,7 @@ llvm::Function& GetRandomFn(llvm::Module* Mod, int size);
 void annota(Value* cosa, std::string commento);
 #include "MaskTraits.h"
 
-std::map<Function*,Function*> InstructionReplace::maskedfn;
+std::map<Function*, Function*> InstructionReplace::maskedfn;
 void InstructionReplace::fixNextUses(Value* from, Value* to)
 {
 	Instruction* ptr = cast<Instruction>(from);
@@ -147,31 +147,31 @@ vector<Value*> MaskValue(Value* ptr, Instruction* relativepos)
 	llvm::IRBuilder<> ib = llvm::IRBuilder<>(relativepos->getContext());
 	SetInsertionPoint(after, ib, relativepos);
 	/* Applico la maschera
-       t = val;
+	   t = val;
 	   a[0] = rand()
-       t = t XOR a[0];
-       a[1] = rand();
-       t = t XOR a[1];
-       //ecc
-       a[n+1]=t;
+	   t = t XOR a[0];
+	   a[1] = rand();
+	   t = t XOR a[1];
+	   //ecc
+	   a[n+1]=t;
 	    */
-    vector<Value*> v;
-    llvm::Value* latestXor = ptr;
-    for(unsigned int i = 0; i < MaskingOrder; i++){
-        llvm::Value* rnd = ib.CreateCall(&rand);
-        v.push_back(rnd);
-        annota(rnd, "ins_maschera");
-        BuildMetadata(rnd, dyn_cast<Instruction>(ptr), NoCryptoFA::InstructionMetadata::CREATE_MASK);
-        latestXor = ib.CreateXor(latestXor, rnd);
-        annota(latestXor, "ins_maschera");
-        BuildMetadata(latestXor, dyn_cast<Instruction>(ptr), NoCryptoFA::InstructionMetadata::CREATE_MASK);
-    }
-    v.push_back(latestXor);
+	vector<Value*> v;
+	llvm::Value* latestXor = ptr;
+	for(unsigned int i = 0; i < MaskingOrder; i++) {
+		llvm::Value* rnd = ib.CreateCall(&rand);
+		v.push_back(rnd);
+		annota(rnd, "ins_maschera");
+		BuildMetadata(rnd, dyn_cast<Instruction>(ptr), NoCryptoFA::InstructionMetadata::CREATE_MASK);
+		latestXor = ib.CreateXor(latestXor, rnd);
+		annota(latestXor, "ins_maschera");
+		BuildMetadata(latestXor, dyn_cast<Instruction>(ptr), NoCryptoFA::InstructionMetadata::CREATE_MASK);
+	}
+	v.push_back(latestXor);
 	if(isa<Instruction>(ptr)) {
 		NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[cast<Instruction>(ptr)];
-        md->MaskedValues = v;
-    }
-    return v;
+		md->MaskedValues = v;
+	}
+	return v;
 }
 
 void InstructionReplace::phase1(llvm::Module& M)
@@ -181,12 +181,12 @@ void InstructionReplace::phase1(llvm::Module& M)
 		    FE = F->end();
 		    BB != FE;
 		    ++BB) {
-				    TaggedData& td = getAnalysis<TaggedData>(*F);
-				if(!td.functionMarked(F)){continue;}
-				cerr << "phase1 "<< F->getName().str()<<endl;
+			TaggedData& td = getAnalysis<TaggedData>(*F);
+			if(!td.functionMarked(F)) {continue;}
+			cerr << "phase1 " << F->getName().str() << endl;
 			CalcDFG& cd = getAnalysis<CalcDFG>(*F);
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
-                if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
+				if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
 				if(!cd.shouldBeProtected(i)) { continue; }
 				cerr << ".";
 				NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[i];
@@ -198,13 +198,13 @@ void InstructionReplace::phase1(llvm::Module& M)
 				CHECK_TYPE(CastInst);
 				CHECK_TYPE(GetElementPtrInst);
 				CHECK_TYPE(LoadInst);
-                CHECK_TYPE(StoreInst);
-                CHECK_TYPE(CallInst);
+				CHECK_TYPE(StoreInst);
+				CHECK_TYPE(CallInst);
 				CHECK_TYPE(SelectInst);
 				else { masked = MaskTraits<Instruction>::replaceWithMasked(i, md); }
 #undef CHECK_TYPE
 				if(masked) {
-					 cerr << "|";
+					cerr << "|";
 					deletionqueue.insert(i);
 					md->hasBeenMasked = true;
 				}
@@ -218,12 +218,12 @@ void InstructionReplace::Unmask(Instruction* ptr)
 	if(md->unmasked_value != NULL) { return; }
 	llvm::IRBuilder<> ib = llvm::IRBuilder<>(ptr->getContext());
 	SetInsertionPoint(true, ib, ptr); //NO, dopo l'ultimo masked
-    llvm::Value*  v = md->MaskedValues[0];
-    for(unsigned int i = 1; i <= MaskingOrder; i++){
-      v = ib.CreateXor(v, md->MaskedValues[i]);
-      annota(v, "rimozi_maschera");
-      BuildMetadata(v, ptr, NoCryptoFA::InstructionMetadata::REMOVE_MASK);
-    }
+	llvm::Value*  v = md->MaskedValues[0];
+	for(unsigned int i = 1; i <= MaskingOrder; i++) {
+		v = ib.CreateXor(v, md->MaskedValues[i]);
+		annota(v, "rimozi_maschera");
+		BuildMetadata(v, ptr, NoCryptoFA::InstructionMetadata::REMOVE_MASK);
+	}
 	md->unmasked_value = cast<Instruction>(v);
 	//fixNextUses(ptr,v);
 	llvm::raw_fd_ostream rerr(2, false);
@@ -239,8 +239,8 @@ void InstructionReplace::phase2(llvm::Module& M)
 		    FE = F->end();
 		    BB != FE;
 		    ++BB) {
-			    TaggedData& td = getAnalysis<TaggedData>(*F);
-				if(!td.functionMarked(F)){continue;}
+			TaggedData& td = getAnalysis<TaggedData>(*F);
+			if(!td.functionMarked(F)) {continue;}
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
 				NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[i];
 				if(!md->hasBeenMasked) { continue; }
@@ -268,73 +268,72 @@ void InstructionReplace::phase3(llvm::Module& M)
 			}
 		}
 		//assert(delcnt > 0 && "Altrimenti resto in un loop infinito!");
-		if(delcnt == 0) { cerr <<  deletionqueue.size() << " unmasked instructions survived :( They are:" << endl;
-			
-	for(Instruction * survivor : deletionqueue) {
-	 errs() << *survivor << "\n";
-	 }
-			break;}
+		if(delcnt == 0) {
+			cerr <<  deletionqueue.size() << " unmasked instructions survived :( They are:" << endl;
+		for(Instruction * survivor : deletionqueue) {
+				errs() << *survivor << "\n";
+			}
+			break;
+		}
 	}
 }
-void setFullyMasked(Function * F){
-		for(llvm::Function::iterator BB = F->begin(),
-		    FE = F->end();
-		    BB != FE;
-		    ++BB) {
-			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
-                NoCryptoFA::InstructionMetadata* md = llvm::NoCryptoFA::InstructionMetadata::getNewMD(i);
-				md->isAKeyOperation=true;
-				md->isAKeyStart=false;
-				md->hasToBeProtected=true;
-				md->hasMetPlaintext=true;
-				md->origin = NoCryptoFA::InstructionMetadata::MASKED_FUNCTION;
-				
-				}
-			}
-		
-
+void setFullyMasked(Function* F)
+{
+	for(llvm::Function::iterator BB = F->begin(),
+	    FE = F->end();
+	    BB != FE;
+	    ++BB) {
+		for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
+			NoCryptoFA::InstructionMetadata* md = llvm::NoCryptoFA::InstructionMetadata::getNewMD(i);
+			md->isAKeyOperation = true;
+			md->isAKeyStart = false;
+			md->hasToBeProtected = true;
+			md->hasMetPlaintext = true;
+			md->origin = NoCryptoFA::InstructionMetadata::MASKED_FUNCTION;
+		}
+	}
 }
-void InstructionReplace::cloneFunctions(llvm::Module& M){
-
+void InstructionReplace::cloneFunctions(llvm::Module& M)
+{
 	for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
-	if(!F->getFnAttributes().hasAttribute(Attributes::AttrVal::MaskedCopy)) continue;
+		if(!F->getFnAttributes().hasAttribute(Attributes::AttrVal::MaskedCopy)) { continue; }
 		cerr << "Masking " << F->getName().str();
-		assert(F->arg_size()==1);
+		assert(F->arg_size() == 1);
 		Type* rettype = F->getReturnType();
 		auto args = F->arg_begin();
 		Argument* a1 = args++;
 		Type* paramtype = a1->getType();
 		assert(isa<IntegerType>(rettype));
 		assert(isa<IntegerType>(paramtype));
-			stringstream ss("");
-			ss << "__masked__" << F->getName().str();
-			llvm::LLVMContext& Ctx = M.getContext();
-			llvm::Constant* FunSym;
-            std::vector<Type*> paramtypes;
-            for(unsigned int i = 0; i <= MaskingOrder;i++) paramtypes.push_back(paramtype); //TODO riducibile?
-            for(unsigned int i = 0; i <= MaskingOrder;i++) paramtypes.push_back(rettype->getPointerTo());
-            llvm::FunctionType* ftype = llvm::FunctionType::get(llvm::Type::getVoidTy(Ctx),llvm::ArrayRef<Type*>(paramtypes),false);
-            FunSym = M.getOrInsertFunction(ss.str(),ftype);
-		llvm::Function*	newF = llvm::cast<llvm::Function>(FunSym);
-		maskedfn[F]=newF;
-			SmallVector<llvm::ReturnInst *,4> rets;	
+		stringstream ss("");
+		ss << "__masked__" << F->getName().str();
+		llvm::LLVMContext& Ctx = M.getContext();
+		llvm::Constant* FunSym;
+		std::vector<Type*> paramtypes;
+		for(unsigned int i = 0; i <= MaskingOrder; i++) { paramtypes.push_back(paramtype); } //TODO riducibile?
+		for(unsigned int i = 0; i <= MaskingOrder; i++) { paramtypes.push_back(rettype->getPointerTo()); }
+		llvm::FunctionType* ftype = llvm::FunctionType::get(llvm::Type::getVoidTy(Ctx), llvm::ArrayRef<Type*>(paramtypes), false);
+		FunSym = M.getOrInsertFunction(ss.str(), ftype);
+		llvm::Function* newF = llvm::cast<llvm::Function>(FunSym);
+		maskedfn[F] = newF;
+		SmallVector<llvm::ReturnInst*, 4> rets;
 		ValueToValueMapTy vmap;
-		 llvm::BasicBlock* Entry = llvm::BasicBlock::Create(Ctx, "entry",newF);
-		 llvm::IRBuilder<> ib_entry = llvm::IRBuilder<>(Entry->getContext());
-		 ib_entry.SetInsertPoint(Entry);
-         NoCryptoFA::InstructionMetadata *md = new NoCryptoFA::InstructionMetadata();
-         md->hasBeenMasked=true;
-         auto arg = newF->arg_begin();
-         for(unsigned int i = 0; i <= MaskingOrder;i++) md->MaskedValues.push_back(arg++);
-         Value* fakevalue = ib_entry.CreateAdd(md->MaskedValues[0],md->MaskedValues[1]);
-         md->my_instruction=cast<Instruction>(fakevalue);
-         NoCryptoFA::known[ md->my_instruction]=md;
-deletionqueue.insert(md->my_instruction);
-		vmap.insert(std::make_pair(a1,fakevalue));
-		 CloneFunctionInto(newF,F,vmap,true,rets);
+		llvm::BasicBlock* Entry = llvm::BasicBlock::Create(Ctx, "entry", newF);
+		llvm::IRBuilder<> ib_entry = llvm::IRBuilder<>(Entry->getContext());
+		ib_entry.SetInsertPoint(Entry);
+		NoCryptoFA::InstructionMetadata* md = new NoCryptoFA::InstructionMetadata();
+		md->hasBeenMasked = true;
+		auto arg = newF->arg_begin();
+		for(unsigned int i = 0; i <= MaskingOrder; i++) { md->MaskedValues.push_back(arg++); }
+		Value* fakevalue = ib_entry.CreateAdd(md->MaskedValues[0], md->MaskedValues[1]);
+		md->my_instruction = cast<Instruction>(fakevalue);
+		NoCryptoFA::known[ md->my_instruction] = md;
+		deletionqueue.insert(md->my_instruction);
+		vmap.insert(std::make_pair(a1, fakevalue));
+		CloneFunctionInto(newF, F, vmap, true, rets);
 		ib_entry.CreateBr(cast<BasicBlock>(vmap[&F->getEntryBlock()]));
-		 AttrBuilder toremove;
-		 toremove.addAttribute(Attributes::AttrVal::MaskedCopy);
+		AttrBuilder toremove;
+		toremove.addAttribute(Attributes::AttrVal::MaskedCopy);
 		toremove.addAttribute(Attributes::AttrVal::ZExt);
 		toremove.addAttribute(Attributes::AttrVal::SExt);
 		toremove.addAttribute(Attributes::AttrVal::NoAlias);
@@ -342,47 +341,46 @@ deletionqueue.insert(md->my_instruction);
 		toremove.addAttribute(Attributes::AttrVal::StructRet);
 		toremove.addAttribute(Attributes::AttrVal::ByVal);
 		toremove.addAttribute(Attributes::AttrVal::Nest);
-		newF->removeFnAttr(Attributes::get(Ctx,toremove));
-		newF->removeAttribute(0,Attributes::get(Ctx,toremove)); //Thr..ehm,Zero is a magic number! Toglie gli attributi zeroext e simili dal valore di ritorno.
+		newF->removeFnAttr(Attributes::get(Ctx, toremove));
+		newF->removeAttribute(0, Attributes::get(Ctx, toremove)); //Thr..ehm,Zero is a magic number! Toglie gli attributi zeroext e simili dal valore di ritorno.
 		/*for(auto it = rets.begin(); it!=rets.end();++it){
-			llvm::ReturnInst* ri = llvm::ReturnInst::Create(newF->getContext());
-			ri->insertBefore(*it);
-			(*it)->eraseFromParent();
+		    llvm::ReturnInst* ri = llvm::ReturnInst::Create(newF->getContext());
+		    ri->insertBefore(*it);
+		    (*it)->eraseFromParent();
 		}*/
 		TaggedData& td = getAnalysis<TaggedData>(*F);
 		td.markFunction(newF);
 		setFullyMasked(newF);
 	}
 }
-void InstructionReplace::insertStores(llvm::Module& M){
+void InstructionReplace::insertStores(llvm::Module& M)
+{
 	for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
-	if(!F->getFnAttributes().hasAttribute(Attributes::AttrVal::MaskedCopy)) continue;
-	llvm::Function* Fun = maskedfn[F];
-    vector<Value*> outputshares;
-    ReturnInst* tbd = NULL;
-    auto arg = Fun->arg_begin();
-    for(unsigned int i = 0; i <= MaskingOrder;i++) ++arg;
-    for(unsigned int i = 0; i <= MaskingOrder;i++) outputshares.push_back(arg++);
+		if(!F->getFnAttributes().hasAttribute(Attributes::AttrVal::MaskedCopy)) { continue; }
+		llvm::Function* Fun = maskedfn[F];
+		vector<Value*> outputshares;
+		ReturnInst* tbd = NULL;
+		auto arg = Fun->arg_begin();
+		for(unsigned int i = 0; i <= MaskingOrder; i++) { ++arg; }
+		for(unsigned int i = 0; i <= MaskingOrder; i++) { outputshares.push_back(arg++); }
 		for(llvm::Function::iterator BB = Fun->begin(),
 		    FE = Fun->end();
 		    BB != FE;
 		    ++BB) {
-
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
-                if(tbd!=NULL){tbd->eraseFromParent();tbd=NULL;}
-				if(!isa<ReturnInst>(i)){continue;}
-                ReturnInst* ri = cast<ReturnInst>(i);
-                IRBuilder<> ib = llvm::IRBuilder<>(BB->getContext());
-                ib.SetInsertPoint(i);
-                vector<Value*> shares=MaskValue(ri->getReturnValue(),ri);
-                for(unsigned int i = 0; i <= MaskingOrder;i++) ib.CreateStore(shares[i], outputshares[i]);
-                ib.CreateRetVoid();
-                tbd=ri;
-				}
+				if(tbd != NULL) {tbd->eraseFromParent(); tbd = NULL;}
+				if(!isa<ReturnInst>(i)) {continue;}
+				ReturnInst* ri = cast<ReturnInst>(i);
+				IRBuilder<> ib = llvm::IRBuilder<>(BB->getContext());
+				ib.SetInsertPoint(i);
+				vector<Value*> shares = MaskValue(ri->getReturnValue(), ri);
+				for(unsigned int i = 0; i <= MaskingOrder; i++) { ib.CreateStore(shares[i], outputshares[i]); }
+				ib.CreateRetVoid();
+				tbd = ri;
 			}
-            if(tbd!=NULL){tbd->eraseFromParent();tbd=NULL;}
-	
-	}	
+		}
+		if(tbd != NULL) {tbd->eraseFromParent(); tbd = NULL;}
+	}
 }
 
 bool InstructionReplace::runOnModule(llvm::Module& M)
@@ -392,7 +390,6 @@ bool InstructionReplace::runOnModule(llvm::Module& M)
 	insertStores(M);
 	phase2(M);
 	phase3(M);
-	
 	return true;
 }
 

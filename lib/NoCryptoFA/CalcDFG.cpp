@@ -105,7 +105,7 @@ llvm::NoCryptoFA::InstructionMetadata* CalcDFG::getMD(llvm::Instruction* ptr)
 #include <iostream>
 bitset<MAX_OUTBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr)
 {
-	Value* op=NULL;
+	Value* op = NULL;
 	if(isa<StoreInst>(ptr)) {
 		StoreInst* s = cast<StoreInst>(ptr);
 		op = s->getPointerOperand();
@@ -147,7 +147,7 @@ int CalcDFG::getOperandSize(llvm::Type* t)
 bool CalcDFG::shouldBeProtected(Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
-    return (MaskEverything && md->hasMetPlaintext) || md->hasToBeProtected;
+	return (MaskEverything && md->hasMetPlaintext) || md->hasToBeProtected;
 	//   return NoCryptoFA::known[ptr]->hasMetPlaintext;
 }
 bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
@@ -156,7 +156,7 @@ bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
 	if(instr_bs.find(ptr) != instr_bs.end()) {
 		return instr_bs[ptr];
 	}
-	Type* t=NULL;
+	Type* t = NULL;
 	if(isa<llvm::GetElementPtrInst>(ptr)) {
 		GetElementPtrInst* gep = cast<GetElementPtrInst>(ptr);
 		if(!gep->hasAllConstantIndices()) {cerr << "GetOwnBitset on a non-constant GetElementPtr. Dow!" << endl;}
@@ -235,10 +235,11 @@ void checkNeedsMasking(Instruction* ptr, NoCryptoFA::InstructionMetadata* md)
 	else { CalcPreTraits<Instruction>::needsMasking(ptr, md); }
 #undef CHECK_TYPE
 }
-void ClearMatrix(NoCryptoFA::InstructionMetadata* md){
-for(int i = 0; i < md->pre.size(); i++){
-md->pre[i].reset();
-}
+void ClearMatrix(NoCryptoFA::InstructionMetadata* md)
+{
+	for(int i = 0; i < md->pre.size(); i++) {
+		md->pre[i].reset();
+	}
 }
 void CalcDFG::calcPre(llvm::Instruction* ptr)
 {

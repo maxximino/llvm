@@ -14,7 +14,7 @@ namespace llvm
 			std::set<MyNodeType*> children;
 			std::set<MyNodeType*> subnodes; //in sostituzione temporanea di un iteratore intelligente che visita tutti i sottonodi
 			static MyNodeType* rootnode;
-            bool hasToBeProtected;
+			bool hasToBeProtected;
 			MyNodeType(std::string n): children(), subnodes() {
 				name = n;
 				md = NULL;

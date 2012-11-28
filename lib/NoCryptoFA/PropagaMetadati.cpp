@@ -79,8 +79,7 @@ bool PropagaMetadati::runOnFunction(llvm::Function& F)
 	    BB != FE;
 	    ++BB) {
 		for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
-            if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
-
+			if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
 			llvm::NoCryptoFA::InstructionMetadata* md = td.getMD(i);
 			if(td.isMarkedAsStatus(i)) {
 				latest_status = i;

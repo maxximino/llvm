@@ -35,64 +35,63 @@ namespace llvm
 			}
 		};
 		struct InstructionMetadata {
-			enum InstructionSource {
-			    ORIGINAL_PROGRAM,
-			    CREATE_MASK,
-			    XOR_MASKED,
-			    AND_MASKED,
-			    CAST_MASKED,
-			    SHIFT_MASKED,
-			    SBOX_MASKED,
-			    SELECT_MASKED,
-			    REMOVE_MASK,
-			    MASKED_FUNCTION
-			};
-			bool isAKeyOperation;
-			bool isAKeyStart;
-			bool isSbox;
-			bool hasToBeProtected;
-			bool hasBeenMasked;
-			bool hasMetPlaintext;
-			InstructionSource origin;
-			std::vector<std::bitset<MAX_KEYBITS> > pre;
-			std::bitset<MAX_KEYBITS> own;
-			std::bitset<MAX_OUTBITS> post_sum;
-			std::bitset<MAX_OUTBITS> post_min;
-			Instruction* my_instruction;
-			Instruction* unmasked_value;
-			std::vector<Value*> MaskedValues;
-			StatisticInfo pre_stats;
-			InstructionMetadata(Instruction* ptr): pre(0), own(0), post_sum(0), post_min(0), MaskedValues(0), pre_stats() {
-                init();
-                my_instruction = ptr;
-				known[ptr] = this;
-			}
-            InstructionMetadata(){
-            init();
-            }
-            static llvm::NoCryptoFA::InstructionMetadata* getNewMD(llvm::Instruction* ptr)
-            {
-                llvm::NoCryptoFA::InstructionMetadata* md;
-                if(NoCryptoFA::known.find(ptr) != NoCryptoFA::known.end()) {
-                    md = NoCryptoFA::known[ptr];
-                } else {
-                    md = new llvm::NoCryptoFA::InstructionMetadata(ptr);
-                }
-                return md;
-            }
-        private: void init(){
-            origin = InstructionMetadata::ORIGINAL_PROGRAM;
-            unmasked_value = NULL;
-            isAKeyOperation = false;
-            isAKeyStart = false;
-            isSbox = false;
-            hasToBeProtected = false;
-            hasBeenMasked = false;
-            hasMetPlaintext = false;
-            post_sum.reset();
-            post_min.set();
-
-        }
+				enum InstructionSource {
+				    ORIGINAL_PROGRAM,
+				    CREATE_MASK,
+				    XOR_MASKED,
+				    AND_MASKED,
+				    CAST_MASKED,
+				    SHIFT_MASKED,
+				    SBOX_MASKED,
+				    SELECT_MASKED,
+				    REMOVE_MASK,
+				    MASKED_FUNCTION
+				};
+				bool isAKeyOperation;
+				bool isAKeyStart;
+				bool isSbox;
+				bool hasToBeProtected;
+				bool hasBeenMasked;
+				bool hasMetPlaintext;
+				InstructionSource origin;
+				std::vector<std::bitset<MAX_KEYBITS> > pre;
+				std::bitset<MAX_KEYBITS> own;
+				std::bitset<MAX_OUTBITS> post_sum;
+				std::bitset<MAX_OUTBITS> post_min;
+				Instruction* my_instruction;
+				Instruction* unmasked_value;
+				std::vector<Value*> MaskedValues;
+				StatisticInfo pre_stats;
+				InstructionMetadata(Instruction* ptr): pre(0), own(0), post_sum(0), post_min(0), MaskedValues(0), pre_stats() {
+					init();
+					my_instruction = ptr;
+					known[ptr] = this;
+				}
+				InstructionMetadata() {
+					init();
+				}
+				static llvm::NoCryptoFA::InstructionMetadata* getNewMD(llvm::Instruction* ptr) {
+					llvm::NoCryptoFA::InstructionMetadata* md;
+					if(NoCryptoFA::known.find(ptr) != NoCryptoFA::known.end()) {
+						md = NoCryptoFA::known[ptr];
+					} else {
+						md = new llvm::NoCryptoFA::InstructionMetadata(ptr);
+					}
+					return md;
+				}
+			private:
+				void init() {
+					origin = InstructionMetadata::ORIGINAL_PROGRAM;
+					unmasked_value = NULL;
+					isAKeyOperation = false;
+					isAKeyStart = false;
+					isSbox = false;
+					hasToBeProtected = false;
+					hasBeenMasked = false;
+					hasMetPlaintext = false;
+					post_sum.reset();
+					post_min.set();
+				}
 
 		};
 
