@@ -305,7 +305,8 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
     // If all of the demanded bits are known to be zero on one side or the
     // other, turn this into an *inclusive* or.
     //    e.g. (A & C1)^(B & C2) -> (A & C1)|(B & C2) iff C1&C2 == 0
-    if ((DemandedMask & ~RHSKnownZero & ~LHSKnownZero) == 0) {
+   // SOSTITUIRE FALSE CON PARAMETRO A LINEA DI COMANDO
+    if (false && ((DemandedMask & ~RHSKnownZero & ~LHSKnownZero)) == 0) {
       Instruction *Or = 
         BinaryOperator::CreateOr(I->getOperand(0), I->getOperand(1),
                                  I->getName());
