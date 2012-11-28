@@ -232,6 +232,7 @@ void checkNeedsMasking(Instruction* ptr, NoCryptoFA::InstructionMetadata* md)
 	CHECK_TYPE(BinaryOperator);
 	CHECK_TYPE(CastInst);
 	CHECK_TYPE(GetElementPtrInst);
+    CHECK_TYPE(CallInst);
 	else { CalcPreTraits<Instruction>::needsMasking(ptr, md); }
 #undef CHECK_TYPE
 }
@@ -252,7 +253,8 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
 	CHECK_TYPE(CastInst);
 	CHECK_TYPE(GetElementPtrInst);
 	CHECK_TYPE(SelectInst);
-	else { CalcPreTraits<Instruction>::calc(changed, ptr, md); }
+    CHECK_TYPE(CallInst);
+    else { CalcPreTraits<Instruction>::calc(changed, ptr, md); }
 #undef CHECK_TYPE
 	bool oldProt = md->hasToBeProtected;
 	checkNeedsMasking(ptr, md);

@@ -213,7 +213,17 @@ struct CalcPreTraits<SelectInst> {
 		}
 
 };
+template<>
+struct CalcPreTraits<CallInst> {
+    public:
+        static void calc(bool& changed, CallInst* ptr, NoCryptoFA::InstructionMetadata* md) {
+            Calc_Pre_BiggestSum(changed, ptr, md);
+        }
+        static void needsMasking(CallInst* ptr, NoCryptoFA::InstructionMetadata* md) {
+            usualMaskingLogic(ptr, md);
+        }
 
+};
 template<>
 struct CalcPreTraits<GetElementPtrInst> {
 	public:
