@@ -120,15 +120,14 @@ void BuildMetadata(Value* _newInstruction, Instruction* oldInstruction, NoCrypto
 	Instruction* newInstruction = cast<Instruction>(_newInstruction);
 	NoCryptoFA::InstructionMetadata* newMd = new NoCryptoFA::InstructionMetadata(newInstruction);
 	newMd->origin = origin;
-	newMd->hasToBeProtected = false;
+    newMd->hasToBeProtected_post = false;
+    newMd->hasToBeProtected_pre = false;
 	if(oldInstruction != NULL) {
 		NoCryptoFA::InstructionMetadata* oldMd = NoCryptoFA::known[oldInstruction];
 		newMd->hasMetPlaintext = oldMd->hasMetPlaintext;
 		newMd->isAKeyOperation = oldMd->isAKeyOperation;
 		newMd->isAKeyStart = oldMd->isAKeyStart;
 		newMd->own = oldMd->own;
-		newMd->post_sum = oldMd->post_sum;
-		newMd->post_min = oldMd->post_min;
 		newMd->pre = oldMd->pre;
 	}
 }
@@ -287,7 +286,8 @@ void setFullyMasked(Function* F)
 			NoCryptoFA::InstructionMetadata* md = llvm::NoCryptoFA::InstructionMetadata::getNewMD(i);
 			md->isAKeyOperation = true;
 			md->isAKeyStart = false;
-			md->hasToBeProtected = true;
+            md->hasToBeProtected_pre = true;
+            md->hasToBeProtected_post = true;
 			md->hasMetPlaintext = true;
 			md->origin = NoCryptoFA::InstructionMetadata::MASKED_FUNCTION;
 		}

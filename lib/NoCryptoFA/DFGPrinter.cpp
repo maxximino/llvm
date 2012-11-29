@@ -62,11 +62,15 @@ namespace llvm
 			if(Node->md) {
 				switch(Node->md->origin) { //Sta diventando piu spaghettoso di quanto sia giusto. Refactor?
 					case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
-						if(Node->hasToBeProtected) {
+                    if(Node->md->isPostKeyStart){
+                        return "style=filled,color=\"#00ff00\"";
+                    }
+                        if(Node->hasToBeProtected) {
 							return "style=filled,color=\"#f458f4\"";
 						} else if(Node->md->isAKeyOperation) {
 							return "style=filled,color=\"#58faf4\"";
 						}
+
 						break;
 					case NoCryptoFA::InstructionMetadata::CREATE_MASK:
 						return "style=filled,color=\"#181af4\"";
@@ -85,7 +89,7 @@ namespace llvm
 		std::string getEdgeAttributes(const MyNodeType* Node, EdgeIter EI,
 		                              const MyNodeType* Graph) {
 			if(Node->md) {
-				if(Node->md->hasToBeProtected) {
+                if(Node->md->hasToBeProtected_pre || Node->md->hasToBeProtected_post) {
 					return "color=\"#f458f4\"";
 				} else if(Node->md->isAKeyOperation) {
 					return "color=\"#58faf4\"";
@@ -249,7 +253,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				instr_dump << md->pre_stats.avg << ";";
 				instr_dump << md->pre_stats.avg_nonzero << ";";
 				instr_dump << md->hasMetPlaintext << ";";
-				instr_dump << md->hasToBeProtected << ";";
+                instr_dump << md->hasToBeProtected_pre << ";";
 				if(i->getDebugLoc().isUnknown()) {
 					instr_dump << "UNKNOWN;UNKNOWN;";
 				} else {
@@ -261,7 +265,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 					if(md->isAKeyStart) {
 						os << "KeyStart" << "\n";
 					}
-					os << "<Own:" << printbs_small<MAX_KEYBITS>(md->own) << ",Pre:" << printvec_small<MAX_KEYBITS>(md->pre) << ",Post_sum:" << printbs_small<MAX_OUTBITS>(md->post_sum) << ",Post_min:" << printbs_small<MAX_OUTBITS>(md->post_min) << ">" << "\n";
+                    os << "<Own:" << printbs_small<MAX_KEYBITS>(md->own) << ",Pre:" << printvec_small<MAX_KEYBITS>(md->pre)<< ",Post_Own:" << printbs_small<MAX_OUTBITS>(md->post_own)<< ",Post:" << printvec_small<MAX_OUTBITS>(md->post) << ">" << "\n";
 				}
 				boxcont << os.str() << "\n";
 				if(md->hasMetPlaintext) {
@@ -303,7 +307,9 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 					boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
 				}
 				if(md->isAKeyOperation) {
-					boxcont << "Own:" << printbs_large<MAX_KEYBITS>(md->own) << "\nPre:" << printvec_large<MAX_KEYBITS>(md->pre) << "\nPost_sum:" << printbs_large<MAX_OUTBITS>(md->post_sum) << "\nPost_min:" << printbs_large<MAX_OUTBITS>(md->post_min);
+                    boxcont << "Own:" << printbs_large<MAX_KEYBITS>(md->own) << "\nPre:" << printvec_large<MAX_KEYBITS>(md->pre);
+                    boxcont << "\nPost_Own:" << printbs_large<MAX_OUTBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_OUTBITS>(md->post);
+                    boxcont << "\n puntatore ad md è " << md << endl;
 				}
 				cur = new MyNodeType(os.str());
 				fname << "Node" << cur << ".html";

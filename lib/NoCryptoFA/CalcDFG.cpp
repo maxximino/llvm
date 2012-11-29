@@ -27,7 +27,8 @@ void set_if_changed(bool& changed, bitset<SIZE>* var, bitset<SIZE> newvalue)
 	changed = true;
 	(*var) = newvalue;
 }
-void checkNeedsMasking(Instruction* ptr, NoCryptoFA::InstructionMetadata* md);
+void checkNeedsMasking_pre(Instruction* ptr, NoCryptoFA::InstructionMetadata* md);
+void checkNeedsMasking_post(Instruction* ptr, NoCryptoFA::InstructionMetadata* md);
 //#define set_if_changed(changed,var,newvalue) if(var!=(newvalue)){changed=true,var=newvalue;}
 #include "InstrTraits.h"
 
@@ -43,11 +44,10 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 	keyLatestPos = 0;
 	outLatestPos = 0;
 	instr_bs.clear();
-	endPoints.clear();
+    keyPostPoints.clear();
 	llvm::TaggedData& td = getAnalysis<TaggedData>();
 	if(!td.functionMarked(&Fun)) {return true;}
-	endPoints.clear();
-	toBeVisited.clear();
+    toBeVisited.clear();
 	struct timeval clk_start, clk_end;
 	gettimeofday(&clk_start, NULL);
 	for(llvm::Function::iterator FI = Fun.begin(),
@@ -65,8 +65,10 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 			if(NoCryptoFA::known[I]->isAKeyOperation) {
 				int size = getOperandSize(I);
 				NoCryptoFA::known[I]->pre.resize(size);
+                NoCryptoFA::known[I]->post.resize(size);
 				for(int i = 0; i < size; ++i) {
 					NoCryptoFA::known[I]->pre[i] = bitset<MAX_KEYBITS>(0);
+                    NoCryptoFA::known[I]->post[i] = bitset<MAX_KEYBITS>(0);
 				}
 			}
 		}
@@ -81,22 +83,26 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 	gettimeofday(&clk_end, NULL);
 	std::cerr << "Tempo visita pre: delta-sec" <<  clk_end.tv_sec - clk_start.tv_sec;
 	std::cerr << " delta-usec" <<  clk_end.tv_usec - clk_start.tv_usec << endl;
-for(Instruction * p : endPoints) {
-		toBeVisited.clear();
-		calcPost(p);
-		while(toBeVisited.size() > 0) {
+    toBeVisited.clear();
+    for(Instruction* p : keyPostPoints){
+        for(auto u = p->use_begin(); u != p->use_end(); ++u){
+            Instruction *Inst = dyn_cast<Instruction>(*u);
+            toBeVisited.insert(Inst);
+        }
+    }
+    while(toBeVisited.size() > 0) {
 			std::set<Instruction*> thisVisit = set<Instruction*>(toBeVisited);
 			toBeVisited.clear();
 		for(Instruction * p : thisVisit) {
 				calcPost(p);
 			}
 		}
-	}
 	gettimeofday(&clk_end, NULL);
 	std::cerr << "Tempo visita pre+post: delta-sec" <<  clk_end.tv_sec - clk_start.tv_sec;
 	std::cerr << " delta-usec" <<  clk_end.tv_usec - clk_start.tv_usec << endl;
 	return false;
 }
+
 llvm::NoCryptoFA::InstructionMetadata* CalcDFG::getMD(llvm::Instruction* ptr)
 {
 	return NoCryptoFA::known[ptr];
@@ -105,24 +111,12 @@ llvm::NoCryptoFA::InstructionMetadata* CalcDFG::getMD(llvm::Instruction* ptr)
 #include <iostream>
 bitset<MAX_OUTBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr)
 {
-	Value* op = NULL;
-	if(isa<StoreInst>(ptr)) {
-		StoreInst* s = cast<StoreInst>(ptr);
-		op = s->getPointerOperand();
-	} else if(isa<ReturnInst>(ptr)) {
-		ReturnInst* s = cast<ReturnInst>(ptr);
-		op = s->getReturnValue();
-	} else if(isa<CallInst>(ptr)) {
-		op = ptr;
-		cerr << "La chiave passa ad una CALL.... warn!\n";
-	} else {
-		raw_fd_ostream rerr(2, false);
-		rerr << *ptr;
-		cerr << "Istruzione senza usi che non è una return nè una store nè una call... Segfaultiamo per far notare l'importanza del problema.." << endl;
-		int* ptr = 0;
-		*ptr = 1;
-	}
-	int outQty = getOperandSize(op->getType());
+    if(instr_out_bs.find(ptr) != instr_out_bs.end()) {
+        return instr_out_bs[ptr];
+    }
+
+    Value* op = ptr;
+    int outQty = getOperandSize(op->getType());
 	//  cerr << "latestPos " << outLatestPos << " outQty:" << outQty << endl;
 	bitset<MAX_OUTBITS> mybs;
 	mybs.reset();
@@ -131,6 +125,7 @@ bitset<MAX_OUTBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr)
 	}
 	outLatestPos += outQty;
 	cerr << " new outLatestPos " << outLatestPos << endl;
+    instr_out_bs[ptr]=mybs;
 	return mybs;
 }
 int CalcDFG::getOperandSize(llvm::Instruction* ptr)
@@ -147,7 +142,7 @@ int CalcDFG::getOperandSize(llvm::Type* t)
 bool CalcDFG::shouldBeProtected(Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
-	return (MaskEverything && md->hasMetPlaintext) || md->hasToBeProtected;
+    return (MaskEverything && md->hasMetPlaintext) || md->hasToBeProtected_pre || md->hasToBeProtected_post;
 	//   return NoCryptoFA::known[ptr]->hasMetPlaintext;
 }
 bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
@@ -198,84 +193,126 @@ bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
 	instr_bs[ptr] = mybs;
 	return mybs;
 }
+template< int BITNUM>
+static void ClearMatrix(vector<bitset<BITNUM> > &vec)
+{
+    for(unsigned int i = 0; i < vec.size(); i++) {
+        vec[i].reset();
+    }
+}
 void CalcDFG::calcPost(Instruction* ptr)
 {
-	//raw_fd_ostream rerr(2,false);
-	//rerr << "entro:" << *ptr << "\n";
-	if(!NoCryptoFA::known[ptr]->isAKeyOperation) { return; }
-	for(auto it = ptr->op_begin(); it != ptr->op_end(); ++it) {
-		if(Instruction* _it = dyn_cast<Instruction>(*it)) {
-			auto itmd = NoCryptoFA::known[_it];
-			// rerr << "op:" << *_it<< "\n";
-			bool changed = false;
-			for(auto u = _it->use_begin(); u != _it->use_end(); ++u) {
-				if(Instruction* _u = dyn_cast<Instruction>(*u)) {
-					auto umd = NoCryptoFA::known[_u];
-					//rerr <<"istr:" << *_it << "uso" << *_u << "\n";
-					set_if_changed<MAX_OUTBITS>(changed, &(itmd->post_sum), itmd->post_sum | umd->post_sum);
-					if(itmd->post_min.count() >  umd->post_min.count()) {
-						set_if_changed<MAX_OUTBITS>(changed, &(itmd->post_min), umd->post_min);
-					}
-				}
-			}
-			if(changed) { toBeVisited.insert(_it); }
-		}
-	}
+    NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
+   bool changed = false;
+   debug(1,"conv7225",md);
+   ClearMatrix<MAX_OUTBITS>(md->post);
+    for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
+        if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+            NoCryptoFA::InstructionMetadata *opmd=NoCryptoFA::known[_it];
+            if(opmd->post_own.count()>0){
+                md->post_FirstToMeetKey=true;
+                for(int i = 0; i < md->post.size();i++){
+                    md->post[i] = md->post[i]|opmd->post_own; // DIAGONALE, non blocchettino!
+                }
+            }
+        }
+    }
+    debug(0,"conv7225",md);
+    for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
+        if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+            NoCryptoFA::InstructionMetadata *usemd=NoCryptoFA::known[_it];
+ #define CHECK_TYPE(type) else if(isa<type>(_it)) CalcTraits<type>::calcPost(cast<type>(_it),md,usemd)
+                if(0) {}
+                CHECK_TYPE(BinaryOperator);
+                CHECK_TYPE(CastInst);
+                CHECK_TYPE(GetElementPtrInst);
+                CHECK_TYPE(SelectInst);
+                CHECK_TYPE(CallInst);
+                else { CalcTraits<Instruction>::calcPost(_it,md,usemd); }
+#undef CHECK_TYPE
+                debug(0,"conv7225",md);
+
+        }
+    }
+    debug(0,"conv7225",md);
+    checkNeedsMasking_post(ptr, md);
+            for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
+                if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                    toBeVisited.insert(_it);
+                }
+            }
 }
 
-void checkNeedsMasking(Instruction* ptr, NoCryptoFA::InstructionMetadata* md)
+void checkNeedsMasking_post(Instruction* ptr, NoCryptoFA::InstructionMetadata* md)
+{
+    // errs() << "checkNeedsMasking di " << *ptr << "\n";
+#define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcTraits<type>::needsMasking_post(cast<type>(ptr),md)
+    if(0) {}
+    CHECK_TYPE(SelectInst);
+    CHECK_TYPE(BinaryOperator);
+    CHECK_TYPE(CastInst);
+    CHECK_TYPE(GetElementPtrInst);
+    CHECK_TYPE(CallInst);
+    else { CalcTraits<Instruction>::needsMasking_post(ptr, md); }
+#undef CHECK_TYPE
+}
+void checkNeedsMasking_pre(Instruction* ptr, NoCryptoFA::InstructionMetadata* md)
 {
 	// errs() << "checkNeedsMasking di " << *ptr << "\n";
-#define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcPreTraits<type>::needsMasking(cast<type>(ptr),md)
+#define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcTraits<type>::needsMasking_pre(cast<type>(ptr),md)
 	if(0) {}
 	CHECK_TYPE(SelectInst);
 	CHECK_TYPE(BinaryOperator);
 	CHECK_TYPE(CastInst);
 	CHECK_TYPE(GetElementPtrInst);
     CHECK_TYPE(CallInst);
-	else { CalcPreTraits<Instruction>::needsMasking(ptr, md); }
+    else { CalcTraits<Instruction>::needsMasking_pre(ptr, md); }
 #undef CHECK_TYPE
 }
-void ClearMatrix(NoCryptoFA::InstructionMetadata* md)
-{
-	for(int i = 0; i < md->pre.size(); i++) {
-		md->pre[i].reset();
-	}
-}
+
 void CalcDFG::calcPre(llvm::Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
 	bool changed = false;
-	ClearMatrix(md);
-#define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcPreTraits<type>::calc(changed,cast<type>(ptr),md)
+    ClearMatrix<MAX_KEYBITS>(md->pre);
+#define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcTraits<type>::calcPre(changed,cast<type>(ptr),md)
 	if(0) {}
 	CHECK_TYPE(BinaryOperator);
 	CHECK_TYPE(CastInst);
 	CHECK_TYPE(GetElementPtrInst);
 	CHECK_TYPE(SelectInst);
     CHECK_TYPE(CallInst);
-    else { CalcPreTraits<Instruction>::calc(changed, ptr, md); }
+    else { CalcTraits<Instruction>::calcPre(changed, ptr, md); }
 #undef CHECK_TYPE
-	bool oldProt = md->hasToBeProtected;
-	checkNeedsMasking(ptr, md);
-	if(oldProt != md->hasToBeProtected) {changed = true;}
+    bool oldProt = md->hasToBeProtected_pre;
+    checkNeedsMasking_pre(ptr, md);
+    if(oldProt != md->hasToBeProtected_pre) {changed = true;}
 	if(changed || md->own.any()) {
 		if(!ptr->use_empty()) {
+            bool everyUseIsInCipher = true;
+            bool hasAtLeastOneUseInCipher = false;
 			for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
 				if(Instruction* _it = dyn_cast<Instruction>(*it)) {
 					toBeVisited.insert(_it);
+                    if(!(NoCryptoFA::known[_it]->hasMetPlaintext && NoCryptoFA::known[_it]->isAKeyOperation)){
+                        everyUseIsInCipher = false;
+                    }
+                    else{
+                        hasAtLeastOneUseInCipher=true;
+                    }
 				}
 			}
-		} else {
-			endPoints.insert(ptr);
-			//      raw_fd_ostream rerr(2,false);
-			//          rerr << "estremo:" << *ptr << "\n";
-			//siamo ad un estremo dell'albero
-			//md->post_sum = getOutBitset(ptr);
-			//        cerr << "bs:" << md->post_sum << "\n";
-			//md->post_min = md->post_sum;
-		}
-	}
+            //Condizione originale: if(everyUseIsInCipher && (!(ptr->use_empty())) && (!md->hasMetPlaintext)){
+            if(hasAtLeastOneUseInCipher && (!(ptr->use_empty())) && (!md->hasMetPlaintext) && (ptr->getDebugLoc().getLine()==254)){
+                //errs() << *ptr << " CHIAVE OUT \n";
+                    errs() << "#";
+                    keyPostPoints.insert(ptr);
+                    md->isPostKeyStart=true;
+                    md->isPostKeyOperation=true;
+                    md->post_own=getOutBitset(ptr);
+            }
+        }
+    }
 }
 void CalcDFG::getAnalysisUsage(llvm::AnalysisUsage& AU) const
 {

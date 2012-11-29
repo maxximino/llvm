@@ -8,7 +8,7 @@
 #include <bitset>
 #include <array>
 #define MAX_KEYBITS 128
-#define MAX_OUTBITS 256
+#define MAX_OUTBITS 128
 
 using namespace std;
 using namespace llvm;
@@ -49,20 +49,24 @@ namespace llvm
 				};
 				bool isAKeyOperation;
 				bool isAKeyStart;
+                bool isPostKeyStart;
+                bool isPostKeyOperation;
 				bool isSbox;
-				bool hasToBeProtected;
+                bool hasToBeProtected_pre;
+                bool hasToBeProtected_post;
+                bool post_FirstToMeetKey;
 				bool hasBeenMasked;
 				bool hasMetPlaintext;
 				InstructionSource origin;
 				std::vector<std::bitset<MAX_KEYBITS> > pre;
 				std::bitset<MAX_KEYBITS> own;
-				std::bitset<MAX_OUTBITS> post_sum;
-				std::bitset<MAX_OUTBITS> post_min;
+                std::vector<std::bitset<MAX_OUTBITS> > post;
+                std::bitset<MAX_OUTBITS> post_own;
 				Instruction* my_instruction;
 				Instruction* unmasked_value;
 				std::vector<Value*> MaskedValues;
 				StatisticInfo pre_stats;
-				InstructionMetadata(Instruction* ptr): pre(0), own(0), post_sum(0), post_min(0), MaskedValues(0), pre_stats() {
+                InstructionMetadata(Instruction* ptr): pre(0), own(0), post(0), post_own(0), MaskedValues(0), pre_stats() {
 					init();
 					my_instruction = ptr;
 					known[ptr] = this;
@@ -86,12 +90,14 @@ namespace llvm
 					isAKeyOperation = false;
 					isAKeyStart = false;
 					isSbox = false;
-					hasToBeProtected = false;
+                    hasToBeProtected_pre = false;
+                    hasToBeProtected_post = false;
 					hasBeenMasked = false;
 					hasMetPlaintext = false;
-					post_sum.reset();
-					post_min.set();
-				}
+                    post_FirstToMeetKey=false;
+                    post_own.reset();
+                    own.reset();
+                }
 
 		};
 

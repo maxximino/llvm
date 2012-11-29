@@ -73,12 +73,13 @@ namespace llvm
 		private:
 			// This is the information computed by the analysis.
 			std::map<llvm::Instruction*, std::bitset<MAX_KEYBITS> > instr_bs;
+            std::map<llvm::Instruction*, std::bitset<MAX_OUTBITS> > instr_out_bs;
 			std::map<NoCryptoFA::KeyStartInfo, std::bitset<MAX_KEYBITS> > GEPs;
 			bool antenato(llvm::Instruction* ptr, llvm::Instruction* ricercato);
 			int keyLatestPos;
 			int outLatestPos;
 			std::set<Instruction*> toBeVisited;
-			std::set<Instruction*> endPoints;
+            std::set<Instruction*> keyPostPoints;
 			void calcPre(llvm::Instruction* ptr);
 			void calcPost(llvm::Instruction* ptr);
 			bitset<MAX_OUTBITS> getOutBitset(llvm::Instruction* ptr);
