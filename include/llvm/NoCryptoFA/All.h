@@ -7,6 +7,7 @@
 #include "DFGPrinter.h"
 #include "MaxTestPass.h"
 #include "InstructionReplace.h"
+#include "InstructionCount.h"
 namespace
 {
 	static struct NCFAForcePassLinking {
@@ -23,6 +24,7 @@ namespace
 			(void) llvm::createDFGPrinterPass();
 			(void) llvm::createMaxTestPass();
 			(void) llvm::createInstructionReplacePass();
+            (void) llvm::createInstructionCountPass();
 		}
 	} NCFAForcePassLinking; // Force link by creating a global definition.
 }

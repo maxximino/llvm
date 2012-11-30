@@ -582,6 +582,7 @@ int main(int argc, char **argv) {
   initializeInstrumentation(Registry);
   initializeTarget(Registry);
   initializeTaggedDataPass(Registry);
+  initializeInstructionCountPass(Registry);
   initializeCalcDFGPass(Registry);
   initializePropagaMetadatiPass(Registry);
   initializeDFGPrinterPass(Registry);
