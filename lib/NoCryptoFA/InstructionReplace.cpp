@@ -24,6 +24,9 @@ using namespace std;
 static cl::opt<unsigned int>
 MaskingOrder("nocryptofa-masking-order", cl::init(1), cl::ValueRequired,
              cl::desc("NoCryptoFA Masking order"));
+static cl::opt<bool>
+ForceComputational("nocryptofa-force-computational", cl::init(false), cl::ValueRequired,
+               cl::desc("NoCryptoFA Force computational SBOX"));
 
 
 namespace llvm
