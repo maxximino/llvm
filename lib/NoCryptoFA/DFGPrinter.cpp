@@ -188,34 +188,35 @@ void outFile(std::string nodename, std::string contenuto)
 	ofstream out(fname.append(nodename));
 	out << contenuto;
 }
-static void calcStatistics(Instruction* ptr)
+template<int NUMBITS>
+void calcStatistics(llvm::NoCryptoFA::StatisticInfo &stat,vector<bitset<NUMBITS> > &vect)
 {
-	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
+
 	int avgcnt = 0;
 	int avgnzcnt = 0;
 	int cnt = 0;
-	md->pre_stats.min = 999999;
-	md->pre_stats.min_nonzero = 999999;
-for(bitset<MAX_KEYBITS> cur: md->pre) {
+    stat.min = 999999;
+    stat.min_nonzero = 999999;
+for(bitset<NUMBITS> cur: vect) {
 		cnt = cur.count();
 		avgcnt++;
-		if(cnt > md->pre_stats.max) {
-			md->pre_stats.max = cnt;
+        if(cnt > stat.max) {
+            stat.max = cnt;
 		}
-		if(cnt < md->pre_stats.min) {
-			md->pre_stats.min = cnt;
+        if(cnt < stat.min) {
+            stat.min = cnt;
 		}
 		if(cnt > 0) {
-			md->pre_stats.avg_nonzero += cnt;
-			md->pre_stats.avg += cnt;
+            stat.avg_nonzero += cnt;
+            stat.avg += cnt;
 			avgnzcnt++;
-			if(cnt < md->pre_stats.min_nonzero) {
-				md->pre_stats.min_nonzero = cnt;
+            if(cnt < stat.min_nonzero) {
+                stat.min_nonzero = cnt;
 			}
 		}
 	}
-	if(avgcnt > 0) { md->pre_stats.avg = md->pre_stats.avg / avgcnt; }
-	if(avgnzcnt > 0) { md->pre_stats.avg_nonzero = md->pre_stats.avg_nonzero / avgnzcnt; }
+    if(avgcnt > 0) { stat.avg = stat.avg / avgcnt; }
+    if(avgnzcnt > 0) { stat.avg_nonzero = stat.avg_nonzero / avgnzcnt; }
 }
 bool DFGPrinter::runOnModule(llvm::Module& M)
 {
@@ -235,7 +236,9 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 			TaggedData& td = getAnalysis<TaggedData>(*F);
 			string instr_dump_str = string();
 			llvm::raw_string_ostream instr_dump(instr_dump_str);
-			instr_dump << "Max;Min;MinNZ;Avg;AvgNZ;Plaintext;ToBeProtected;SourceLine;SourceColumn;\"Full instruction\"\n";
+            instr_dump << "Pre_Max;Pre_Min;Pre_MinNZ;Pre_Avg;Pre_AvgNZ;";
+            instr_dump << "Post_Max;Post_Min;Post_MinNZ;Post_Avg;Post_AvgNZ;";
+            instr_dump << "Min_MinNZ;Plaintext;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;\"Full instruction\"\n";
 			if(!td.functionMarked(&(*F))) { continue; }
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
 				if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
@@ -243,17 +246,26 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				llvm::raw_string_ostream os (outp);
 				std::stringstream boxcont("");
 				std::stringstream fname("");
-				calcStatistics(i);
-				boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/></head><body><pre>";
+                boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/></head><body><pre>";
 				os << *i << "\n";
 				llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
+                calcStatistics<MAX_KEYBITS>(md->pre_stats,md->pre);
+                calcStatistics<MAX_OUTBITS>(md->post_stats,md->post);
 				instr_dump << md->pre_stats.max << ";";
 				instr_dump << md->pre_stats.min << ";";
 				instr_dump << md->pre_stats.min_nonzero << ";";
 				instr_dump << md->pre_stats.avg << ";";
 				instr_dump << md->pre_stats.avg_nonzero << ";";
-				instr_dump << md->hasMetPlaintext << ";";
+                instr_dump << md->post_stats.max << ";";
+                instr_dump << md->post_stats.min << ";";
+                instr_dump << md->post_stats.min_nonzero << ";";
+                instr_dump << md->post_stats.avg << ";";
+                instr_dump << md->post_stats.avg_nonzero << ";";
+                instr_dump << std::min(md->pre_stats.min_nonzero,md->post_stats.min_nonzero) << ";";
+                instr_dump << md->hasMetPlaintext << ";";
                 instr_dump << md->hasToBeProtected_pre << ";";
+                instr_dump << md->hasToBeProtected_post << ";";
+                instr_dump << (md->hasToBeProtected_pre|md->hasToBeProtected_post) << ";";
 				if(i->getDebugLoc().isUnknown()) {
 					instr_dump << "UNKNOWN;UNKNOWN;";
 				} else {

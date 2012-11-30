@@ -66,6 +66,7 @@ namespace llvm
 				Instruction* unmasked_value;
 				std::vector<Value*> MaskedValues;
 				StatisticInfo pre_stats;
+                StatisticInfo post_stats;
                 InstructionMetadata(Instruction* ptr): pre(0), own(0), post(0), post_own(0), MaskedValues(0), pre_stats() {
 					init();
 					my_instruction = ptr;
