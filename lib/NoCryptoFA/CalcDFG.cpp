@@ -50,7 +50,7 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
     keyPostPoints.clear();
     if(alreadyTransformed.find(&Fun)!=alreadyTransformed.end()) {return false;}
 	llvm::TaggedData& td = getAnalysis<TaggedData>();
-	if(!td.functionMarked(&Fun)) {return true;}
+    if(!td.functionMarked(&Fun)) {return false;}
     toBeVisited.clear();
 	struct timeval clk_start, clk_end;
 	gettimeofday(&clk_start, NULL);
@@ -63,8 +63,8 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 		    I != E;
 		    ++I) {
 			if(NoCryptoFA::known[I]->isAKeyStart) {
-				if(NoCryptoFA::known[I]->own.none()) {  NoCryptoFA::known[I]->own = getOwnBitset(I); }
-				toBeVisited.insert(I);
+                NoCryptoFA::known[I]->own = getOwnBitset(I);
+                toBeVisited.insert(I);
 			}
 			if(NoCryptoFA::known[I]->isAKeyOperation) {
 				int size = getOperandSize(I);
@@ -72,7 +72,7 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
                 NoCryptoFA::known[I]->post.resize(size);
 				for(int i = 0; i < size; ++i) {
 					NoCryptoFA::known[I]->pre[i] = bitset<MAX_KEYBITS>(0);
-                    NoCryptoFA::known[I]->post[i] = bitset<MAX_KEYBITS>(0);
+                    NoCryptoFA::known[I]->post[i] = bitset<MAX_OUTBITS>(0);
 				}
 			}
 		}
@@ -140,6 +140,10 @@ bitset<MAX_OUTBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr)
 
     Value* op = ptr;
     int outQty = getOperandSize(op->getType());
+    if(outLatestPos+outQty > MAX_OUTBITS){
+        cerr << "Something wrong with CalcDFG.";
+                return bitset<MAX_OUTBITS>(0);
+    }
 	//  cerr << "latestPos " << outLatestPos << " outQty:" << outQty << endl;
 	bitset<MAX_OUTBITS> mybs;
 	mybs.reset();
@@ -147,7 +151,9 @@ bitset<MAX_OUTBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr)
 		mybs[i] = 1;
 	}
 	outLatestPos += outQty;
-	cerr << " new outLatestPos " << outLatestPos << endl;
+
+    cerr << " new outLatestPos " << outLatestPos << " riga " << ptr->getDebugLoc().getLine()<< endl;
+
     instr_out_bs[ptr]=mybs;
 	return mybs;
 }
@@ -308,7 +314,7 @@ bool CalcDFG::lookForBackwardsKeyPoints(llvm::Instruction* ptr)
 void CalcDFG::calcPre(llvm::Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
-	bool changed = false;
+    bool changed = true;
     ClearMatrix<MAX_KEYBITS>(md->pre);
 #define CHECK_TYPE(type) else if(isa<type>(ptr)) CalcTraits<type>::calcPre(changed,cast<type>(ptr),md)
 	if(0) {}

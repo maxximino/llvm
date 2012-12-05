@@ -2,7 +2,7 @@
 using namespace llvm;
 // Save Our Souls per debugging:
 static void dump(NoCryptoFA::InstructionMetadata* md){
-for(bitset<MAX_KEYBITS> b: md->post){
+for(bitset<MAX_OUTBITS> b: md->post){
 cerr << b.count() << "-";
 }
 cerr << endl;
@@ -83,10 +83,10 @@ static void ShiftKeyBitset(int direction, unsigned int idx, bool& changed, std::
 	if(direction) {
 		//a sinistra
         for(unsigned int i = 0; i < maxcp; i++) { tmp[i] = vec[i + idx]; }
-		for(unsigned int i = 0; i < idx; i++) { tmp[maxcp + i] = bitset<MAX_KEYBITS>(0); }
+        for(unsigned int i = 0; i < idx; i++) { tmp[maxcp + i] = bitset<NUMBITS>(0); }
 	} else {
 		//a destra
-		for(unsigned int i = 0; i < idx; i++) { tmp[i] = bitset<MAX_KEYBITS>(0); }
+        for(unsigned int i = 0; i < idx; i++) { tmp[i] = bitset<NUMBITS>(0); }
         for(unsigned int i = 0; i < maxcp; i++) { tmp[idx + i] = vec[i]; }
 	}
     for(unsigned int i = 0; i < vec.size(); i++) { vec[i] = tmp[i]; }
@@ -217,7 +217,7 @@ static void usualMaskingLogic_post(Instruction* ptr, NoCryptoFA::InstructionMeta
     bool hasEmpty = false;
     bool retval = false;
 if(!md->hasMetPlaintext) {md->hasToBeProtected_pre=false; return; }
-for(bitset<MAX_KEYBITS> b : md->post) {
+for(bitset<MAX_OUTBITS> b : md->post) {
         if(b.count() < SecurityMargin.getValue()) {
             hasEmpty = true;
             break;
