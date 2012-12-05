@@ -82,8 +82,13 @@ namespace llvm
 			int outLatestPos;
             std::set<Function*> alreadyTransformed;
 			std::set<Instruction*> toBeVisited;
+            std::set<Instruction*> cipherOutPoints;
             std::set<Instruction*> keyPostPoints;
+            std::set<Instruction*> candidatekeyPostPoints;
+
 			void calcPre(llvm::Instruction* ptr);
+            bool lookForBackwardsKeyPoints(llvm::Instruction* ptr);
+
 			void calcPost(llvm::Instruction* ptr);
 			bitset<MAX_OUTBITS> getOutBitset(llvm::Instruction* ptr);
 			bitset<MAX_KEYBITS> getOwnBitset(llvm::Instruction* ptr);

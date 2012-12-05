@@ -43,7 +43,10 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 {
 	keyLatestPos = 0;
 	outLatestPos = 0;
-	instr_bs.clear();
+    cipherOutPoints.clear();
+    candidatekeyPostPoints.clear();
+    instr_bs.clear();
+    instr_out_bs.clear();
     keyPostPoints.clear();
     if(alreadyTransformed.find(&Fun)!=alreadyTransformed.end()) {return false;}
 	llvm::TaggedData& td = getAnalysis<TaggedData>();
@@ -84,6 +87,25 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 	gettimeofday(&clk_end, NULL);
 	std::cerr << "Tempo visita pre: delta-sec" <<  clk_end.tv_sec - clk_start.tv_sec;
 	std::cerr << " delta-usec" <<  clk_end.tv_usec - clk_start.tv_usec << endl;
+    toBeVisited=cipherOutPoints;
+    cerr << "cipherOutPoints n°" << cipherOutPoints.size() << endl;
+    cerr << "candidateKeyPOst n°" << candidatekeyPostPoints.size() << endl;
+    cerr << "keyLatestPos " << keyLatestPos << endl;
+    cerr << "outLatestPos " << outLatestPos << endl;
+    bool stopIterations=false;
+    while((toBeVisited.size() > 0) && !stopIterations) {
+            std::set<Instruction*> thisVisit = set<Instruction*>(toBeVisited);
+            toBeVisited.clear();
+        for(Instruction * p : thisVisit) {
+                if(lookForBackwardsKeyPoints(p)){stopIterations=true;};
+            }
+        }
+
+
+
+
+
+
     toBeVisited.clear();
     for(Instruction* p : keyPostPoints){
         for(auto u = p->use_begin(); u != p->use_end(); ++u){
@@ -203,6 +225,7 @@ static void ClearMatrix(vector<bitset<BITNUM> > &vec)
 void CalcDFG::calcPost(Instruction* ptr)
 {
     NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
+    if(!md->isAKeyOperation) {return;}
    bool changed = false;
    ClearMatrix<MAX_OUTBITS>(md->post);
     for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
@@ -265,7 +288,23 @@ void checkNeedsMasking_pre(Instruction* ptr, NoCryptoFA::InstructionMetadata* md
     else { CalcTraits<Instruction>::needsMasking_pre(ptr, md); }
 #undef CHECK_TYPE
 }
-
+bool CalcDFG::lookForBackwardsKeyPoints(llvm::Instruction* ptr)
+{
+    NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
+    if(candidatekeyPostPoints.find(ptr) != candidatekeyPostPoints.end()){
+        errs() << "#";
+        keyPostPoints.insert(ptr);
+        md->isPostKeyStart=true;
+        md->isPostKeyOperation=true;
+        md->post_own=getOutBitset(ptr);
+    }
+    for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
+        if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+           toBeVisited.insert(_it);
+        }
+    }
+    return outLatestPos >= keyLatestPos;
+}
 void CalcDFG::calcPre(llvm::Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
@@ -283,6 +322,9 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
     bool oldProt = md->hasToBeProtected_pre;
     checkNeedsMasking_pre(ptr, md);
     if(oldProt != md->hasToBeProtected_pre) {changed = true;}
+    if(md->hasMetPlaintext && md->isAKeyOperation && ptr->use_empty()) {
+        cipherOutPoints.insert(ptr);
+    }
 	if(changed || md->own.any()) {
 		if(!ptr->use_empty()) {
             bool everyUseIsInCipher = true;
@@ -297,15 +339,11 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
                         hasAtLeastOneUseInCipher=true;
                     }
 				}
-			}
+            }
+
             //Condizione originale: if(everyUseIsInCipher && (!(ptr->use_empty())) && (!md->hasMetPlaintext)){
-            if(hasAtLeastOneUseInCipher && (!(ptr->use_empty())) && (!md->hasMetPlaintext) && (ptr->getDebugLoc().getLine()==254)){
-                //errs() << *ptr << " CHIAVE OUT \n";
-                    errs() << "#";
-                    keyPostPoints.insert(ptr);
-                    md->isPostKeyStart=true;
-                    md->isPostKeyOperation=true;
-                    md->post_own=getOutBitset(ptr);
+           if(hasAtLeastOneUseInCipher && (!(ptr->use_empty())) && (!md->hasMetPlaintext)){ //  && (ptr->getDebugLoc().getLine()==254)
+                    candidatekeyPostPoints.insert(ptr);
             }
         }
     }
