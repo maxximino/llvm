@@ -170,7 +170,6 @@ bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
 					mybs[i] = 1;
 				}
 				keyLatestPos += keyQty;
-				cerr << "nuovo kLP " << keyLatestPos << endl;
 				// cerr << "kq: "<<keyQty<<  " lp " << latestPos << "--"<< mybs.to_string() << endl;
 				instr_bs[ptr] = mybs;
 				return mybs;
@@ -204,7 +203,6 @@ void CalcDFG::calcPost(Instruction* ptr)
 {
     NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
    bool changed = false;
-   debug(1,"conv7225",md);
    ClearMatrix<MAX_OUTBITS>(md->post);
     for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
         if(Instruction* _it = dyn_cast<Instruction>(*it)) {
@@ -217,7 +215,6 @@ void CalcDFG::calcPost(Instruction* ptr)
             }
         }
     }
-    debug(0,"conv7225",md);
     for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
         if(Instruction* _it = dyn_cast<Instruction>(*it)) {
             NoCryptoFA::InstructionMetadata *usemd=NoCryptoFA::known[_it];
@@ -230,11 +227,9 @@ void CalcDFG::calcPost(Instruction* ptr)
                 CHECK_TYPE(CallInst);
                 else { CalcTraits<Instruction>::calcPost(_it,md,usemd); }
 #undef CHECK_TYPE
-                debug(0,"conv7225",md);
 
         }
     }
-    debug(0,"conv7225",md);
     checkNeedsMasking_post(ptr, md);
             for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
                 if(Instruction* _it = dyn_cast<Instruction>(*it)) {

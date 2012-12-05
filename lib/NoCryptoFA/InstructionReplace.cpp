@@ -190,7 +190,6 @@ void InstructionReplace::phase1(llvm::Module& M)
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
 				if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
 				if(!cd.shouldBeProtected(i)) { continue; }
-				cerr << ".";
 				NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[i];
 				if(md->origin != NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM && md->origin != NoCryptoFA::InstructionMetadata::MASKED_FUNCTION) { continue; }
 				bool masked = false;
@@ -206,7 +205,6 @@ void InstructionReplace::phase1(llvm::Module& M)
 				else { masked = MaskTraits<Instruction>::replaceWithMasked(i, md); }
 #undef CHECK_TYPE
 				if(masked) {
-					cerr << "|";
 					deletionqueue.insert(i);
 					md->hasBeenMasked = true;
 				}

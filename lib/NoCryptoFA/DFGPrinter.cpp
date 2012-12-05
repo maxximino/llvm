@@ -321,7 +321,6 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				if(md->isAKeyOperation) {
                     boxcont << "Own:" << printbs_large<MAX_KEYBITS>(md->own) << "\nPre:" << printvec_large<MAX_KEYBITS>(md->pre);
                     boxcont << "\nPost_Own:" << printbs_large<MAX_OUTBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_OUTBITS>(md->post);
-                    boxcont << "\n puntatore ad md è " << md << endl;
 				}
 				cur = new MyNodeType(os.str());
 				fname << "Node" << cur << ".html";
