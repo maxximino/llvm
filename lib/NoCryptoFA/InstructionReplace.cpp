@@ -39,7 +39,7 @@ void BuildMetadata(Value* _newInstruction, Instruction* oldInstruction, NoCrypto
 vector<Value*> MaskValue(Value* ptr, Instruction* relativepos);
 llvm::Function& GetRandomFn(llvm::Module* Mod, int size);
 void annota(Value* cosa, std::string commento);
-#include "MaskTraits.h"
+#include "MaskingVisitor.h"
 
 std::map<Function*, Function*> InstructionReplace::maskedfn;
 void InstructionReplace::fixNextUses(Value* from, Value* to)
@@ -58,11 +58,7 @@ llvm::Function& GetRand(llvm::Module* Mod)
 {
 	llvm::LLVMContext& Ctx = Mod->getContext();
 	llvm::FunctionType* RandTy;
-#if defined(__i386__) || defined(__x86_64__)
 	RandTy = llvm::FunctionType::get(llvm::Type::getInt32Ty(Ctx), false);
-#else
-#error "Architecture not supported"
-#endif
 	llvm::Constant* FunSym = Mod->getOrInsertFunction("rand", RandTy);
 	return *llvm::cast<llvm::Function>(FunSym);
 }
@@ -193,19 +189,8 @@ void InstructionReplace::phase1(llvm::Module& M)
 				if(!cd.shouldBeProtected(i)) { continue; }
 				NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[i];
 				if(md->origin != NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM && md->origin != NoCryptoFA::InstructionMetadata::MASKED_FUNCTION) { continue; }
-				bool masked = false;
-#define CHECK_TYPE(type) else if(isa<type>(i)) masked=MaskTraits<type>::replaceWithMasked(cast<type>(i),md)
-				if(0) {}
-				CHECK_TYPE(BinaryOperator);
-				CHECK_TYPE(CastInst);
-				CHECK_TYPE(GetElementPtrInst);
-				CHECK_TYPE(LoadInst);
-				CHECK_TYPE(StoreInst);
-				CHECK_TYPE(CallInst);
-				CHECK_TYPE(SelectInst);
-				else { masked = MaskTraits<Instruction>::replaceWithMasked(i, md); }
-#undef CHECK_TYPE
-				if(masked) {
+				MaskingVisitor mv;
+				if(mv.visit(i)) {
 					deletionqueue.insert(i);
 					md->hasBeenMasked = true;
 				}
@@ -226,7 +211,6 @@ void InstructionReplace::Unmask(Instruction* ptr)
 		BuildMetadata(v, ptr, NoCryptoFA::InstructionMetadata::REMOVE_MASK);
 	}
 	md->unmasked_value = cast<Instruction>(v);
-	//fixNextUses(ptr,v);
 	llvm::raw_fd_ostream rerr(2, false);
 	cerr << "Rimuovo maschera di ";
 	rerr << *ptr;
@@ -345,11 +329,6 @@ void InstructionReplace::cloneFunctions(llvm::Module& M)
 		toremove.addAttribute(Attributes::AttrVal::Nest);
 		newF->removeFnAttr(Attributes::get(Ctx, toremove));
 		newF->removeAttribute(0, Attributes::get(Ctx, toremove)); //Thr..ehm,Zero is a magic number! Toglie gli attributi zeroext e simili dal valore di ritorno.
-		/*for(auto it = rets.begin(); it!=rets.end();++it){
-		    llvm::ReturnInst* ri = llvm::ReturnInst::Create(newF->getContext());
-		    ri->insertBefore(*it);
-		    (*it)->eraseFromParent();
-		}*/
 		TaggedData& td = getAnalysis<TaggedData>(*F);
 		td.markFunction(newF);
 		setFullyMasked(newF);
