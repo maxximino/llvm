@@ -68,6 +68,9 @@ namespace llvm
 			}
 			bool shouldBeProtected(Instruction* ptr);
 			bool functionMarked(Function* ptr);
+            bool setAsTransformed(Function* ptr){
+                alreadyTransformed.insert(ptr);
+            }
 			static int getOperandSize(llvm::Instruction* ptr);
 			static int getOperandSize(llvm::Type* t);
 		private:
@@ -77,6 +80,7 @@ namespace llvm
 			std::map<NoCryptoFA::KeyStartInfo, std::bitset<MAX_KEYBITS> > GEPs;
 			int keyLatestPos;
 			int outLatestPos;
+            std::set<Function*> alreadyTransformed;
 			std::set<Instruction*> toBeVisited;
             std::set<Instruction*> keyPostPoints;
 			void calcPre(llvm::Instruction* ptr);

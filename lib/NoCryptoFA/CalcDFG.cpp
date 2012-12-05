@@ -45,6 +45,7 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 	outLatestPos = 0;
 	instr_bs.clear();
     keyPostPoints.clear();
+    if(alreadyTransformed.find(&Fun)!=alreadyTransformed.end()) {return false;}
 	llvm::TaggedData& td = getAnalysis<TaggedData>();
 	if(!td.functionMarked(&Fun)) {return true;}
     toBeVisited.clear();

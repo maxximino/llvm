@@ -187,6 +187,7 @@ void InstructionReplace::phase1(llvm::Module& M)
 			if(!td.functionMarked(F)) {continue;}
 			cerr << "phase1 " << F->getName().str() << endl;
 			CalcDFG& cd = getAnalysis<CalcDFG>(*F);
+            cd.setAsTransformed(F.getNodePtrUnchecked());
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
 				if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
 				if(!cd.shouldBeProtected(i)) { continue; }
