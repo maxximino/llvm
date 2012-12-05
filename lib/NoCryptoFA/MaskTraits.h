@@ -181,7 +181,7 @@ struct MaskTraits<GetElementPtrInst> {
 		static bool replaceWithMasked(GetElementPtrInst* ptr, NoCryptoFA::InstructionMetadata* md) {
 			if(!verify(ptr, md)) { return false; }
 			md->isSbox = true;
-            if((MaskingOrder <= 2) && !ForceComputational) {
+			if((MaskingOrder <= 2) && !ForceComputational) {
 				replaceWithBoxRecalc(ptr, md);
 			} else {
 				if(haveEquivalentFunction(ptr, md)) {

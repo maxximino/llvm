@@ -64,15 +64,14 @@ namespace llvm
 			if(Node->md) {
 				switch(Node->md->origin) { //Sta diventando piu spaghettoso di quanto sia giusto. Refactor?
 					case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
-                    if(Node->md->isPostKeyStart){
-                        return "style=filled,color=\"#00ff00\"";
-                    }
-                        if(Node->hasToBeProtected) {
+						if(Node->md->isPostKeyStart) {
+							return "style=filled,color=\"#00ff00\"";
+						}
+						if(Node->hasToBeProtected) {
 							return "style=filled,color=\"#f458f4\"";
 						} else if(Node->md->isAKeyOperation) {
 							return "style=filled,color=\"#58faf4\"";
 						}
-
 						break;
 					case NoCryptoFA::InstructionMetadata::CREATE_MASK:
 						return "style=filled,color=\"#181af4\"";
@@ -91,7 +90,7 @@ namespace llvm
 		std::string getEdgeAttributes(const MyNodeType* Node, EdgeIter EI,
 		                              const MyNodeType* Graph) {
 			if(Node->md) {
-                if(Node->md->hasToBeProtected_pre || Node->md->hasToBeProtected_post) {
+				if(Node->md->hasToBeProtected_pre || Node->md->hasToBeProtected_post) {
 					return "color=\"#f458f4\"";
 				} else if(Node->md->isAKeyOperation) {
 					return "color=\"#58faf4\"";
@@ -139,31 +138,30 @@ for(bitset<SIZE> b : v) {
 	return ss.str();
 }
 template <int SIZE>
-string printbs_syntethic(bitset<SIZE> & b)
+string printbs_syntethic(bitset<SIZE>& b)
 {
-    stringstream ss("");
-    int value = 0;
-    for(int i = 0;i<SIZE;i++){
-        if(b[i]){
-            value++;
-        }
-        if((i%32)==0){
-            ss << hex << setw(8) << internal <<setfill('0') << value;
-            value = 0;
-        }
-        value <<= 1;
-
-    }
-    return ss.str();
+	stringstream ss("");
+	int value = 0;
+	for(int i = 0; i < SIZE; i++) {
+		if(b[i]) {
+			value++;
+		}
+		if((i % 32) == 0) {
+			ss << hex << setw(8) << internal << setfill('0') << value;
+			value = 0;
+		}
+		value <<= 1;
+	}
+	return ss.str();
 }
 template <int SIZE>
 string print_syntethic(std::vector<bitset<SIZE> >& v)
 {
-    stringstream ss("");
+	stringstream ss("");
 for(bitset<SIZE> b : v) {
-    ss << printbs_syntethic<SIZE>(b);
-    }
-    return ss.str();
+		ss << printbs_syntethic<SIZE>(b);
+	}
+	return ss.str();
 }
 
 
@@ -220,34 +218,33 @@ void outFile(std::string nodename, std::string contenuto)
 	out << contenuto;
 }
 template<int NUMBITS>
-void calcStatistics(llvm::NoCryptoFA::StatisticInfo &stat,vector<bitset<NUMBITS> > &vect)
+void calcStatistics(llvm::NoCryptoFA::StatisticInfo& stat, vector<bitset<NUMBITS> >& vect)
 {
-
 	int avgcnt = 0;
 	int avgnzcnt = 0;
 	int cnt = 0;
-    stat.min = 999999;
-    stat.min_nonzero = 999999;
+	stat.min = 999999;
+	stat.min_nonzero = 999999;
 for(bitset<NUMBITS> cur: vect) {
 		cnt = cur.count();
 		avgcnt++;
-        if(cnt > stat.max) {
-            stat.max = cnt;
+		if(cnt > stat.max) {
+			stat.max = cnt;
 		}
-        if(cnt < stat.min) {
-            stat.min = cnt;
+		if(cnt < stat.min) {
+			stat.min = cnt;
 		}
 		if(cnt > 0) {
-            stat.avg_nonzero += cnt;
-            stat.avg += cnt;
+			stat.avg_nonzero += cnt;
+			stat.avg += cnt;
 			avgnzcnt++;
-            if(cnt < stat.min_nonzero) {
-                stat.min_nonzero = cnt;
+			if(cnt < stat.min_nonzero) {
+				stat.min_nonzero = cnt;
 			}
 		}
 	}
-    if(avgcnt > 0) { stat.avg = stat.avg / avgcnt; }
-    if(avgnzcnt > 0) { stat.avg_nonzero = stat.avg_nonzero / avgnzcnt; }
+	if(avgcnt > 0) { stat.avg = stat.avg / avgcnt; }
+	if(avgnzcnt > 0) { stat.avg_nonzero = stat.avg_nonzero / avgnzcnt; }
 }
 bool DFGPrinter::runOnModule(llvm::Module& M)
 {
@@ -267,14 +264,13 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 			TaggedData& td = getAnalysis<TaggedData>(*F);
 			string instr_dump_str = string();
 			llvm::raw_string_ostream instr_dump(instr_dump_str);
-            instr_dump << "Pre_Max;Pre_Min;Pre_MinNZ;Pre_Avg;Pre_AvgNZ;";
-            instr_dump << "Post_Max;Post_Min;Post_MinNZ;Post_Avg;Post_AvgNZ;";
-            instr_dump << "Min_MinNZ;Plaintext;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
-            // parte per output dettagliato
-            instr_dump << "IsAKeyOp;IsAKeyStart;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;pre;pre_own;post;post_own;";
-            // fine parte per output dettagliato
-            instr_dump << "\"Full instruction\"\n";
-
+			instr_dump << "Pre_Max;Pre_Min;Pre_MinNZ;Pre_Avg;Pre_AvgNZ;";
+			instr_dump << "Post_Max;Post_Min;Post_MinNZ;Post_Avg;Post_AvgNZ;";
+			instr_dump << "Min_MinNZ;Plaintext;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
+			// parte per output dettagliato
+			instr_dump << "IsAKeyOp;IsAKeyStart;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;pre;pre_own;post;post_own;";
+			// fine parte per output dettagliato
+			instr_dump << "\"Full instruction\"\n";
 			if(!td.functionMarked(&(*F))) { continue; }
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
 				if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
@@ -282,57 +278,56 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				llvm::raw_string_ostream os (outp);
 				std::stringstream boxcont("");
 				std::stringstream fname("");
-                boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/></head><body><pre>";
+				boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/></head><body><pre>";
 				os << *i << "\n";
 				llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
-                calcStatistics<MAX_KEYBITS>(md->pre_stats,md->pre);
-                calcStatistics<MAX_OUTBITS>(md->post_stats,md->post);
+				calcStatistics<MAX_KEYBITS>(md->pre_stats, md->pre);
+				calcStatistics<MAX_OUTBITS>(md->post_stats, md->post);
 				instr_dump << md->pre_stats.max << ";";
 				instr_dump << md->pre_stats.min << ";";
 				instr_dump << md->pre_stats.min_nonzero << ";";
 				instr_dump << md->pre_stats.avg << ";";
 				instr_dump << md->pre_stats.avg_nonzero << ";";
-                instr_dump << md->post_stats.max << ";";
-                instr_dump << md->post_stats.min << ";";
-                instr_dump << md->post_stats.min_nonzero << ";";
-                instr_dump << md->post_stats.avg << ";";
-                instr_dump << md->post_stats.avg_nonzero << ";";
-                instr_dump << std::min(md->pre_stats.min_nonzero,md->post_stats.min_nonzero) << ";";
-                instr_dump << md->hasMetPlaintext << ";";
-                instr_dump << md->hasToBeProtected_pre << ";";
-                instr_dump << md->hasToBeProtected_post << ";";
-                instr_dump << (md->hasToBeProtected_pre|md->hasToBeProtected_post) << ";";
+				instr_dump << md->post_stats.max << ";";
+				instr_dump << md->post_stats.min << ";";
+				instr_dump << md->post_stats.min_nonzero << ";";
+				instr_dump << md->post_stats.avg << ";";
+				instr_dump << md->post_stats.avg_nonzero << ";";
+				instr_dump << std::min(md->pre_stats.min_nonzero, md->post_stats.min_nonzero) << ";";
+				instr_dump << md->hasMetPlaintext << ";";
+				instr_dump << md->hasToBeProtected_pre << ";";
+				instr_dump << md->hasToBeProtected_post << ";";
+				instr_dump << (md->hasToBeProtected_pre | md->hasToBeProtected_post) << ";";
 				if(i->getDebugLoc().isUnknown()) {
 					instr_dump << "UNKNOWN;UNKNOWN;";
 				} else {
 					instr_dump << i->getDebugLoc().getLine() << ";";
 					instr_dump << i->getDebugLoc().getCol() << ";";
 				}
-                // parte per output dettagliato
-            instr_dump << md->isAKeyOperation << ";";
-            instr_dump << md->isAKeyStart << ";";
-            instr_dump << md->isPostKeyStart << ";";
-            instr_dump << md->isSbox << ";";
-            instr_dump << md->post_FirstToMeetKey << ";";
-            instr_dump << md->hasBeenMasked << ";";
-            instr_dump << md->origin << ";";
-            instr_dump << print_syntethic<MAX_KEYBITS>(md->pre) << ";";
-            instr_dump << printbs_syntethic<MAX_KEYBITS>(md->own) << ";";
-            instr_dump << print_syntethic<MAX_OUTBITS>(md->post) << ";";
-            instr_dump << printbs_syntethic<MAX_OUTBITS>(md->post_own) << ";";
-            // fine parte per output dettagliato
+				// parte per output dettagliato
+				instr_dump << md->isAKeyOperation << ";";
+				instr_dump << md->isAKeyStart << ";";
+				instr_dump << md->isPostKeyStart << ";";
+				instr_dump << md->isSbox << ";";
+				instr_dump << md->post_FirstToMeetKey << ";";
+				instr_dump << md->hasBeenMasked << ";";
+				instr_dump << md->origin << ";";
+				instr_dump << print_syntethic<MAX_KEYBITS>(md->pre) << ";";
+				instr_dump << printbs_syntethic<MAX_KEYBITS>(md->own) << ";";
+				instr_dump << print_syntethic<MAX_OUTBITS>(md->post) << ";";
+				instr_dump << printbs_syntethic<MAX_OUTBITS>(md->post_own) << ";";
+				// fine parte per output dettagliato
 				instr_dump << "\"" << *i << "\"\n";
 				if(md->isAKeyOperation) {
 					if(md->isAKeyStart) {
 						os << "KeyStart" << "\n";
 					}
-                    os << "<Own:" << printbs_small<MAX_KEYBITS>(md->own) << ",Pre:" << printvec_small<MAX_KEYBITS>(md->pre)<< ",Post_Own:" << printbs_small<MAX_OUTBITS>(md->post_own)<< ",Post:" << printvec_small<MAX_OUTBITS>(md->post) << ">" << "\n";
+					os << "<Own:" << printbs_small<MAX_KEYBITS>(md->own) << ",Pre:" << printvec_small<MAX_KEYBITS>(md->pre) << ",Post_Own:" << printbs_small<MAX_OUTBITS>(md->post_own) << ",Post:" << printvec_small<MAX_OUTBITS>(md->post) << ">" << "\n";
 				}
 				boxcont << os.str() << "\n";
-                if(md->post_FirstToMeetKey){
-                    boxcont << "Primo ad incontrare la chiave backwards\n";
-                }
-
+				if(md->post_FirstToMeetKey) {
+					boxcont << "Primo ad incontrare la chiave backwards\n";
+				}
 				if(md->hasMetPlaintext) {
 					boxcont << "Ha incontrato il plaintext\n";
 				} else {
@@ -366,17 +361,17 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 					case NoCryptoFA::InstructionMetadata::SELECT_MASKED:
 						boxcont << "Origine istruzione: Mascheratura di una SELECT\n";
 						break;
-                case NoCryptoFA::InstructionMetadata::MASKED_FUNCTION:
-                    boxcont << "Origine istruzione: Mascheratura di funzione intera\n";
-                    break;
+					case NoCryptoFA::InstructionMetadata::MASKED_FUNCTION:
+						boxcont << "Origine istruzione: Mascheratura di funzione intera\n";
+						break;
 				}
 				boxcont << "Value size:" << md->pre.size() << "\n";
 				if(!i->getDebugLoc().isUnknown()) {
 					boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
 				}
 				if(md->isAKeyOperation) {
-                    boxcont << "Own:" << printbs_large<MAX_KEYBITS>(md->own) << "\nPre:" << printvec_large<MAX_KEYBITS>(md->pre);
-                    boxcont << "\nPost_Own:" << printbs_large<MAX_OUTBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_OUTBITS>(md->post);
+					boxcont << "Own:" << printbs_large<MAX_KEYBITS>(md->own) << "\nPre:" << printvec_large<MAX_KEYBITS>(md->pre);
+					boxcont << "\nPost_Own:" << printbs_large<MAX_OUTBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_OUTBITS>(md->post);
 				}
 				cur = new MyNodeType(os.str());
 				fname << "Node" << cur << ".html";

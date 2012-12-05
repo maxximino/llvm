@@ -16,35 +16,33 @@ using namespace llvm;
 char InstructionCount::ID = 219;
 InstructionCount* llvm::createInstructionCountPass()
 {
-    return new InstructionCount();
+	return new InstructionCount();
 }
 bool InstructionCount::runOnModule(llvm::Module& M)
 {
-    for(auto Fun = M.begin(); Fun != M.end(); ++Fun){
-        unsigned long size=0;
-
-    for(llvm::Function::iterator FI = Fun->begin(),
-        FE = Fun->end();
-	    FI != FE;
-	    ++FI) {
-        size+=FI->size();
+	for(auto Fun = M.begin(); Fun != M.end(); ++Fun) {
+		unsigned long size = 0;
+		for(llvm::Function::iterator FI = Fun->begin(),
+		    FE = Fun->end();
+		    FI != FE;
+		    ++FI) {
+			size += FI->size();
+		}
+		functions[&(*Fun)] = size;
 	}
-
-    functions[&(*Fun)]=size;
-    }
 	return false;
 }
 
- void InstructionCount::print(raw_ostream& OS, const Module* mod) const{
-    for(auto F= mod->begin(); F != mod->end(); ++F ){
-        const Function *fp=F.getNodePtrUnchecked();
-        if(functions.count(fp) == 0){
-            OS << (*F).getName() << " Not analyzed \n";
-        }else{
-        OS << (*F).getName() << " => " << functions.at(fp) << " instructions.\n";
-        }
-
-    }
+void InstructionCount::print(raw_ostream& OS, const Module* mod) const
+{
+	for(auto F = mod->begin(); F != mod->end(); ++F ) {
+		const Function* fp = F.getNodePtrUnchecked();
+		if(functions.count(fp) == 0) {
+			OS << (*F).getName() << " Not analyzed \n";
+		} else {
+			OS << (*F).getName() << " => " << functions.at(fp) << " instructions.\n";
+		}
+	}
 }
 void InstructionCount::getAnalysisUsage(llvm::AnalysisUsage& AU) const
 {

@@ -24,7 +24,7 @@ namespace
 			(void) llvm::createDFGPrinterPass();
 			(void) llvm::createMaxTestPass();
 			(void) llvm::createInstructionReplacePass();
-            (void) llvm::createInstructionCountPass();
+			(void) llvm::createInstructionCountPass();
 		}
 	} NCFAForcePassLinking; // Force link by creating a global definition.
 }

@@ -26,7 +26,7 @@ MaskingOrder("nocryptofa-masking-order", cl::init(1), cl::ValueRequired,
              cl::desc("NoCryptoFA Masking order"));
 static cl::opt<bool>
 ForceComputational("nocryptofa-force-computational", cl::init(false), cl::ValueRequired,
-               cl::desc("NoCryptoFA Force computational SBOX"));
+                   cl::desc("NoCryptoFA Force computational SBOX"));
 
 
 namespace llvm
@@ -123,8 +123,8 @@ void BuildMetadata(Value* _newInstruction, Instruction* oldInstruction, NoCrypto
 	Instruction* newInstruction = cast<Instruction>(_newInstruction);
 	NoCryptoFA::InstructionMetadata* newMd = new NoCryptoFA::InstructionMetadata(newInstruction);
 	newMd->origin = origin;
-    newMd->hasToBeProtected_post = false;
-    newMd->hasToBeProtected_pre = false;
+	newMd->hasToBeProtected_post = false;
+	newMd->hasToBeProtected_pre = false;
 	if(oldInstruction != NULL) {
 		NoCryptoFA::InstructionMetadata* oldMd = NoCryptoFA::known[oldInstruction];
 		newMd->hasMetPlaintext = oldMd->hasMetPlaintext;
@@ -187,7 +187,7 @@ void InstructionReplace::phase1(llvm::Module& M)
 			if(!td.functionMarked(F)) {continue;}
 			cerr << "phase1 " << F->getName().str() << endl;
 			CalcDFG& cd = getAnalysis<CalcDFG>(*F);
-            cd.setAsTransformed(F.getNodePtrUnchecked());
+			cd.setAsTransformed(F.getNodePtrUnchecked());
 			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
 				if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
 				if(!cd.shouldBeProtected(i)) { continue; }
@@ -288,8 +288,8 @@ void setFullyMasked(Function* F)
 			NoCryptoFA::InstructionMetadata* md = llvm::NoCryptoFA::InstructionMetadata::getNewMD(i);
 			md->isAKeyOperation = true;
 			md->isAKeyStart = false;
-            md->hasToBeProtected_pre = true;
-            md->hasToBeProtected_post = true;
+			md->hasToBeProtected_pre = true;
+			md->hasToBeProtected_post = true;
 			md->hasMetPlaintext = true;
 			md->origin = NoCryptoFA::InstructionMetadata::MASKED_FUNCTION;
 		}

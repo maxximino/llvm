@@ -68,26 +68,26 @@ namespace llvm
 			}
 			bool shouldBeProtected(Instruction* ptr);
 			bool functionMarked(Function* ptr);
-            bool setAsTransformed(Function* ptr){
-                alreadyTransformed.insert(ptr);
-            }
+			bool setAsTransformed(Function* ptr) {
+				alreadyTransformed.insert(ptr);
+			}
 			static int getOperandSize(llvm::Instruction* ptr);
 			static int getOperandSize(llvm::Type* t);
 		private:
 			// This is the information computed by the analysis.
 			std::map<llvm::Instruction*, std::bitset<MAX_KEYBITS> > instr_bs;
-            std::map<llvm::Instruction*, std::bitset<MAX_OUTBITS> > instr_out_bs;
+			std::map<llvm::Instruction*, std::bitset<MAX_OUTBITS> > instr_out_bs;
 			std::map<NoCryptoFA::KeyStartInfo, std::bitset<MAX_KEYBITS> > GEPs;
 			int keyLatestPos;
 			int outLatestPos;
-            std::set<Function*> alreadyTransformed;
+			std::set<Function*> alreadyTransformed;
 			std::set<Instruction*> toBeVisited;
-            std::set<Instruction*> cipherOutPoints;
-            std::set<Instruction*> keyPostPoints;
-            std::set<Instruction*> candidatekeyPostPoints;
+			std::set<Instruction*> cipherOutPoints;
+			std::set<Instruction*> keyPostPoints;
+			std::set<Instruction*> candidatekeyPostPoints;
 
 			void calcPre(llvm::Instruction* ptr);
-            bool lookForBackwardsKeyPoints(llvm::Instruction* ptr);
+			bool lookForBackwardsKeyPoints(llvm::Instruction* ptr);
 
 			void calcPost(llvm::Instruction* ptr);
 			bitset<MAX_OUTBITS> getOutBitset(llvm::Instruction* ptr);
