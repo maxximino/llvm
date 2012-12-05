@@ -68,7 +68,7 @@ namespace llvm
 			}
 			bool shouldBeProtected(Instruction* ptr);
 			bool functionMarked(Function* ptr);
-			bool setAsTransformed(Function* ptr) {
+			void setAsTransformed(Function* ptr) {
 				alreadyTransformed.insert(ptr);
 			}
 			static int getOperandSize(llvm::Instruction* ptr);
@@ -85,7 +85,7 @@ namespace llvm
 			std::set<Instruction*> cipherOutPoints;
 			std::set<Instruction*> keyPostPoints;
 			std::set<Instruction*> candidatekeyPostPoints;
-
+			void runBatched(set<Instruction*> initialSet, std::function<bool(Instruction*)> func );
 			void calcPre(llvm::Instruction* ptr);
 			bool lookForBackwardsKeyPoints(llvm::Instruction* ptr);
 

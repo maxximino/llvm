@@ -1,0 +1,101 @@
+#include <llvm/Support/InstVisitor.h>
+using namespace llvm;
+
+class CalcPostVisitor : public InstVisitor<CalcPostVisitor>
+{
+	protected:
+		template<int NUMBITS>
+		static void ShiftKeyBitset(int direction, unsigned int idx, std::vector<std::bitset<NUMBITS> >& vec) {
+			std::vector<std::bitset<NUMBITS> > tmp;
+			tmp.resize(vec.size());
+			if(idx >= vec.size()) {
+				cerr << "Shifting by " << idx << " a " << vec.size() << "bit  data type.Expect something wrong." << endl;
+			}
+			unsigned int maxcp = (vec.size() - idx);
+			if(direction) {
+				//a sinistra
+				for(unsigned int i = 0; i < maxcp; i++) { tmp[i] = vec[i + idx]; }
+				for(unsigned int i = 0; i < idx; i++) { tmp[maxcp + i] = bitset<NUMBITS>(0); }
+			} else {
+				//a destra
+				for(unsigned int i = 0; i < idx; i++) { tmp[i] = bitset<NUMBITS>(0); }
+				for(unsigned int i = 0; i < maxcp; i++) { tmp[idx + i] = vec[i]; }
+			}
+			for(unsigned int i = 0; i < vec.size(); i++) { vec[i] = tmp[i]; }
+		}
+	public:
+		NoCryptoFA::InstructionMetadata* md;
+		NoCryptoFA::InstructionMetadata* usemd;
+		void visitInstruction(Instruction& inst) {
+			int size = std::min(md->post.size(), usemd->post.size());
+			for(int i = 0; i < size; i++) {
+				md->post[i] |= usemd->post[i];
+			}
+		}
+		void visitTrunc(CastInst& inst) {
+			int delta = md->post.size() - usemd->post.size();
+			for(unsigned int i = 0; i < usemd->post.size(); i++) {
+				md->post[delta + i] |= usemd->post[i];
+			}
+		}
+		void visitZExt(CastInst& inst) {
+			int delta = usemd->post.size() - md->post.size();
+			for(unsigned int i = 0; i < md->post.size(); i++) {
+				md->post[i] |= usemd->post[delta + i];
+			}
+		}
+		void visitSExt(CastInst& inst) { visitZExt(inst); }
+		void calcShift(BinaryOperator& inst, int direction) { //dir 0 =>right ,1 =>left
+			Value* v_idx = inst.getOperand(1);
+			if(!isa<ConstantInt>(v_idx)) { cerr << "Shift by a non-constant index. Results undefined."; return; }
+			ConstantInt* ci = cast<ConstantInt>(v_idx);
+			unsigned long idx = ci->getLimitedValue();
+			vector<bitset<MAX_OUTBITS> > toadd = usemd->post;
+			ShiftKeyBitset<MAX_OUTBITS>((direction ? 0 : 1), idx, toadd); //Invert direction.
+			for(unsigned int i = 0; i < md->post.size(); i++) {
+				md->post[i] |= toadd[i];
+			}
+		}
+		void visitShl(BinaryOperator& inst) { calcShift(inst, 1); }
+		void visitLShr(BinaryOperator& inst) { calcShift(inst, 0); }
+		void visitAShr(BinaryOperator& inst) {  calcShift(inst, 0);}
+		void visitAnd(BinaryOperator& inst) {
+			Value* v1 = inst.getOperand(0);
+			Value* v2 = inst.getOperand(1);
+			ConstantInt* ci;
+			Instruction* i;
+			if(isa<ConstantInt>(v2) && isa<Instruction>(v1)) {
+				ci = cast<ConstantInt>(v2);
+				i = cast<Instruction>(v1);
+			} else if(isa<ConstantInt>(v1) && isa<Instruction>(v2)) {
+				ci = cast<ConstantInt>(v1);
+				i = cast<Instruction>(v2);
+			} else {
+				visitInstruction(inst);
+				return;
+			}
+			unsigned long mask = ci->getLimitedValue();
+			auto size = md->post.size();
+			for(unsigned int i = 0; i < size; i++) {
+				if(is_bit_set(mask, i)) {
+					md->post[size - 1 - i] = md->post[size - 1 - i] | usemd->post[size - 1 - i];
+				}
+			}
+		}
+		void calcAsBiggestSum(Instruction& inst) {
+			bitset<MAX_OUTBITS> ob(0);
+		for(bitset<MAX_OUTBITS> b: usemd->post) {
+				ob |= b;
+			}
+			for(unsigned int i = 0; i < md->post.size(); i++) {
+				md->post[i] |= ob;
+			}
+		}
+		void visitMul(BinaryOperator& inst) {calcAsBiggestSum(inst);}
+		void visitUDiv(BinaryOperator& inst) {calcAsBiggestSum(inst);}
+		void visitSMul(BinaryOperator& inst) {calcAsBiggestSum(inst);}
+		void visitURem(BinaryOperator& inst) {calcAsBiggestSum(inst);}
+		void visitSRem(BinaryOperator& inst) {calcAsBiggestSum(inst);}
+		void visitGetElementPtrInst(GetElementPtrInst& inst) {calcAsBiggestSum(inst);}
+		void visitCallInst(CallInst& inst) {calcAsBiggestSum(inst);}
+};
