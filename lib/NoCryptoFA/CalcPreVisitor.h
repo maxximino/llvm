@@ -57,9 +57,15 @@ class CalcPreVisitor : public InstVisitor<CalcPreVisitor>
 		void calcShift(BinaryOperator& inst, int direction) { //0=>right, 1=>left
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
 			Value* v_idx = inst.getOperand(1);
-			if(!isa<ConstantInt>(v_idx)) { cerr << "Shift by a non-constant index. Results undefined."; return; }
-			ConstantInt* ci = cast<ConstantInt>(v_idx);
-			unsigned long idx = ci->getLimitedValue();
+            unsigned long idx = -1;
+            if(!isa<ConstantInt>(v_idx)) {
+                cerr << "Shift by a non-constant index. Results approximated.\n";
+                idx=0;
+            }
+            else{
+                ConstantInt* ci = cast<ConstantInt>(v_idx);
+                idx = ci->getLimitedValue();
+            }
 			visitInstruction(inst);
 			ShiftKeyBitset<MAX_KEYBITS>(direction, idx, md->pre);
 		}

@@ -7,8 +7,8 @@
 #include <set>
 #include <bitset>
 #include <array>
-#define MAX_KEYBITS 128
-#define MAX_OUTBITS 128
+#define MAX_KEYBITS 256
+#define MAX_OUTBITS 256
 
 using namespace std;
 using namespace llvm;
@@ -84,20 +84,26 @@ namespace llvm
 					}
 					return md;
 				}
+                void reset(){
+                    unmasked_value = NULL;
+                    isPostKeyOperation=false;
+                    isPostKeyStart=false;
+                    post_FirstToMeetKey = false;
+                    post_own.reset();
+                    own.reset();
+                    hasToBeProtected_pre = false;
+                    hasToBeProtected_post = false;
+                    hasBeenMasked = false;
+
+                }
 			private:
 				void init() {
 					origin = InstructionMetadata::ORIGINAL_PROGRAM;
-					unmasked_value = NULL;
-					isAKeyOperation = false;
+                    isAKeyOperation = false;
 					isAKeyStart = false;
 					isSbox = false;
-					hasToBeProtected_pre = false;
-					hasToBeProtected_post = false;
-					hasBeenMasked = false;
 					hasMetPlaintext = false;
-					post_FirstToMeetKey = false;
-					post_own.reset();
-					own.reset();
+                    reset();
 				}
 
 		};

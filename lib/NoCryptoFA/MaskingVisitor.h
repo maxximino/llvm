@@ -6,7 +6,7 @@
 #include "llvm/Module.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/IRBuilder.h"
+#include "llvm/IRBuilder.h"
 #include "llvm/Type.h"
 
 #include <llvm/Support/InstVisitor.h>

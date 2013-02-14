@@ -56,6 +56,7 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 		    E = FI->end();
 		    I != E;
 		    ++I) {
+            NoCryptoFA::known[I]->reset();
 			if(NoCryptoFA::known[I]->isAKeyStart) {
 				NoCryptoFA::known[I]->own = getOwnBitset(I);
 				keyStarts.insert(I);
@@ -140,10 +141,18 @@ int CalcDFG::getOperandSize(llvm::Instruction* ptr)
 }
 int CalcDFG::getOperandSize(llvm::Type* t)
 {
+    if(t->isVoidTy()) return 0;
 	while(t->isPointerTy()) {
 		t = t->getPointerElementType();
 	}
-	return t->getScalarSizeInBits(); //TODO: Gestire array e cose diverse da valori scalari e puntatori.
+    //TODO: espandere strutture supportate
+    int dim = t->getScalarSizeInBits();
+    if(dim > 0) return dim;
+    dim = t->getPrimitiveSizeInBits();
+    if(dim > 0) return dim;
+    errs() << "Errore: OperandSize==0 per tipo " << t << "\n";
+    return 0;
+
 }
 bool CalcDFG::shouldBeProtected(Instruction* ptr)
 {
@@ -267,18 +276,20 @@ void checkNeedsMasking_pre(Instruction* ptr, NoCryptoFA::InstructionMetadata* md
 bool CalcDFG::lookForBackwardsKeyPoints(llvm::Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
-	if(candidatekeyPostPoints.find(ptr) != candidatekeyPostPoints.end()) {
+    if((candidatekeyPostPoints.find(ptr) != candidatekeyPostPoints.end())) {
 		errs() << "#";
 		keyPostPoints.insert(ptr);
 		md->isPostKeyStart = true;
 		md->isPostKeyOperation = true;
 		md->post_own = getOutBitset(ptr);
+        errs() << "Scelto: " << ptr->getDebugLoc().getLine() << *ptr << "\n";
 	}
 	for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
 		if(Instruction* _it = dyn_cast<Instruction>(*it)) {
 			toBeVisited.insert(_it);
 		}
 	}
+    if(outLatestPos >= keyLatestPos)    errs() << "stop: outlatestpos " << outLatestPos << " klp " << keyLatestPos << "\n";
 	return outLatestPos >= keyLatestPos;
 }
 void CalcDFG::calcPre(llvm::Instruction* ptr)
@@ -311,6 +322,7 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
 				}
 			}
 			if(hasAtLeastOneUseInCipher && (!(ptr->use_empty())) && (!md->hasMetPlaintext)) {
+                errs() << "Candidato: " << ptr->getDebugLoc().getLine() << *ptr << "\n";
 				candidatekeyPostPoints.insert(ptr);
 			}
 		}

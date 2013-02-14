@@ -47,10 +47,16 @@ class CalcPostVisitor : public InstVisitor<CalcPostVisitor>
 		void visitSExt(CastInst& inst) { visitZExt(inst); }
 		void calcShift(BinaryOperator& inst, int direction) { //dir 0 =>right ,1 =>left
 			Value* v_idx = inst.getOperand(1);
-			if(!isa<ConstantInt>(v_idx)) { cerr << "Shift by a non-constant index. Results undefined."; return; }
-			ConstantInt* ci = cast<ConstantInt>(v_idx);
-			unsigned long idx = ci->getLimitedValue();
-			vector<bitset<MAX_OUTBITS> > toadd = usemd->post;
+            unsigned long idx = -1;
+            if(!isa<ConstantInt>(v_idx)) {
+                cerr << "Shift by a non-constant index. Results approximated.\n";
+                idx=0;
+            }
+            else{
+                ConstantInt* ci = cast<ConstantInt>(v_idx);
+                idx = ci->getLimitedValue();
+            }
+            vector<bitset<MAX_OUTBITS> > toadd = usemd->post;
 			ShiftKeyBitset<MAX_OUTBITS>((direction ? 0 : 1), idx, toadd); //Invert direction.
 			for(unsigned int i = 0; i < md->post.size(); i++) {
 				md->post[i] |= toadd[i];

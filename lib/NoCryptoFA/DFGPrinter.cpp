@@ -13,7 +13,6 @@
 #include "llvm/Module.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/IRBuilder.h"
 #include "llvm/Type.h"
 #include "llvm/Metadata.h"
 #include <llvm/Pass.h>
@@ -243,6 +242,7 @@ for(bitset<NUMBITS> cur: vect) {
 			}
 		}
 	}
+    if(stat.min == 0 && stat.min_nonzero==999999) {stat.min_nonzero=0;}
 	if(avgcnt > 0) { stat.avg = stat.avg / avgcnt; }
 	if(avgnzcnt > 0) { stat.avg_nonzero = stat.avg_nonzero / avgnzcnt; }
 }
@@ -268,7 +268,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 			instr_dump << "Post_Max;Post_Min;Post_MinNZ;Post_Avg;Post_AvgNZ;";
 			instr_dump << "Min_MinNZ;Plaintext;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
 			// parte per output dettagliato
-			instr_dump << "IsAKeyOp;IsAKeyStart;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;pre;pre_own;post;post_own;";
+            instr_dump << "IsAKeyOp;IsAKeyStart;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;ValueSize;pre;pre_own;post;post_own;";
 			// fine parte per output dettagliato
 			instr_dump << "\"Full instruction\"\n";
 			if(!td.functionMarked(&(*F))) { continue; }
@@ -312,6 +312,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				instr_dump << md->post_FirstToMeetKey << ";";
 				instr_dump << md->hasBeenMasked << ";";
 				instr_dump << md->origin << ";";
+                instr_dump << md->pre.size() << ";";
 				instr_dump << print_syntethic<MAX_KEYBITS>(md->pre) << ";";
 				instr_dump << printbs_syntethic<MAX_KEYBITS>(md->own) << ";";
 				instr_dump << print_syntethic<MAX_OUTBITS>(md->post) << ";";

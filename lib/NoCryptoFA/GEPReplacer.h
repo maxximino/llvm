@@ -1,6 +1,6 @@
 #pragma once
 #include <map>
-#include <llvm/Support/IRBuilder.h>
+#include <llvm/IRBuilder.h>
 #include <llvm/Function.h>
 
 using namespace std;
