@@ -266,7 +266,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 			llvm::raw_string_ostream instr_dump(instr_dump_str);
 			instr_dump << "Pre_Max;Pre_Min;Pre_MinNZ;Pre_Avg;Pre_AvgNZ;";
 			instr_dump << "Post_Max;Post_Min;Post_MinNZ;Post_Avg;Post_AvgNZ;";
-			instr_dump << "Min_MinNZ;Plaintext;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
+            instr_dump << "Min_MinNZ;Plaintext;PTHeight;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
 			// parte per output dettagliato
             instr_dump << "IsAKeyOp;IsAKeyStart;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;ValueSize;pre;pre_own;post;post_own;";
 			// fine parte per output dettagliato
@@ -295,6 +295,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				instr_dump << md->post_stats.avg_nonzero << ";";
 				instr_dump << std::min(md->pre_stats.min_nonzero, md->post_stats.min_nonzero) << ";";
 				instr_dump << md->hasMetPlaintext << ";";
+                instr_dump << md->PlaintextHeight << ";";
 				instr_dump << md->hasToBeProtected_pre << ";";
 				instr_dump << md->hasToBeProtected_post << ";";
 				instr_dump << (md->hasToBeProtected_pre | md->hasToBeProtected_post) << ";";
@@ -330,7 +331,7 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 					boxcont << "Primo ad incontrare la chiave backwards\n";
 				}
 				if(md->hasMetPlaintext) {
-					boxcont << "Ha incontrato il plaintext\n";
+                    boxcont << "Ha incontrato il plaintext (" << md->PlaintextHeight << ")\n";
 				} else {
 					boxcont << "Non ha incontrato il plaintext\n";
 				}

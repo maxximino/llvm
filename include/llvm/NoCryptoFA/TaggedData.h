@@ -57,6 +57,7 @@ namespace llvm
 				bool post_FirstToMeetKey;
 				bool hasBeenMasked;
 				bool hasMetPlaintext;
+                long PlaintextHeight;
 				InstructionSource origin;
 				std::vector<std::bitset<MAX_KEYBITS> > pre;
 				std::bitset<MAX_KEYBITS> own;
@@ -103,6 +104,7 @@ namespace llvm
 					isAKeyStart = false;
 					isSbox = false;
 					hasMetPlaintext = false;
+                    PlaintextHeight=0;
                     reset();
 				}
 
@@ -137,7 +139,7 @@ namespace llvm
 			std::set<Function*> markedfunctions;
 			void checkMeta(llvm::Instruction* ptr);
 			void infect(llvm::Instruction* ptr);
-			void infectPlain(llvm::Instruction* ptr);
+            void infectPlain(llvm::Instruction* ptr,long height);
 			void infectSbox(llvm::Instruction* ptr);
 			bool hasmd;
 	};

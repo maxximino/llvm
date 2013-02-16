@@ -96,15 +96,16 @@ void TaggedData::infect(llvm::Instruction* ptr)
 	}
 }
 
-void TaggedData::infectPlain(llvm::Instruction* ptr)
+void TaggedData::infectPlain(llvm::Instruction* ptr,long height)
 {
 	llvm::NoCryptoFA::InstructionMetadata* md = llvm::NoCryptoFA::InstructionMetadata::getNewMD(ptr);
 	hasmd = true;
-	if(!md->hasMetPlaintext) {
+    if(!md->hasMetPlaintext) {
 		md->hasMetPlaintext = true;
+        md->PlaintextHeight = height;
 		for(llvm::Instruction::use_iterator i = ptr->use_begin(); i != ptr->use_end(); ++i) {
 			if (Instruction* Inst = dyn_cast<Instruction>(*i)) {
-				infectPlain(Inst);
+                infectPlain(Inst,(height + 1));
 			}
 		}
 	}
@@ -136,7 +137,7 @@ llvm::NoCryptoFA::InstructionMetadata* TaggedData::getMD(llvm::Instruction* ptr)
 void TaggedData::checkMeta(llvm::Instruction* ptr)
 {
 	if(hasMetaMark(ptr, "plain")) {
-		infectPlain(ptr);
+        infectPlain(ptr,0);
 	}
 	if(hasMetaMark(ptr, "sbox")) {
 		infectSbox(ptr);
