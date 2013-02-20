@@ -126,8 +126,10 @@ void BuildMetadata(Value* _newInstruction, Instruction* oldInstruction, NoCrypto
 		newMd->hasMetPlaintext = oldMd->hasMetPlaintext;
 		newMd->isAKeyOperation = oldMd->isAKeyOperation;
 		newMd->isAKeyStart = oldMd->isAKeyStart;
-		newMd->own = oldMd->own;
-		newMd->pre = oldMd->pre;
+        newMd->keydep_own = oldMd->keydep_own;
+        newMd->keydep = oldMd->keydep;
+        newMd->post = oldMd->post;
+        newMd->post_own = oldMd->post_own;
 	}
 }
 

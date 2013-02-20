@@ -59,10 +59,12 @@ namespace llvm
 				bool hasMetPlaintext;
                 long PlaintextHeight;
 				InstructionSource origin;
-				std::vector<std::bitset<MAX_KEYBITS> > pre;
-				std::bitset<MAX_KEYBITS> own;
-				std::vector<std::bitset<MAX_OUTBITS> > post;
-				std::bitset<MAX_OUTBITS> post_own;
+                std::vector<std::bitset<MAX_KEYBITS> > keydep;
+                std::bitset<MAX_KEYBITS> keydep_own;
+/*                std::vector<std::bitset<MAX_KEYBITS> > pre;
+                std::bitset<MAX_KEYBITS> pre_own;*/
+                std::vector<std::bitset<MAX_OUTBITS> > post;
+                std::bitset<MAX_OUTBITS> post_own;
 				Instruction* my_instruction;
 				Instruction* unmasked_value;
 				std::vector<Value*> MaskedValues;
@@ -72,7 +74,7 @@ namespace llvm
                 bool deadBitsCalculated;
                 std::bitset<MAX_VALBITS> deadBits;
                 /* } */
-				InstructionMetadata(Instruction* ptr): pre(0), own(0), post(0), post_own(0), MaskedValues(0), pre_stats() {
+                InstructionMetadata(Instruction* ptr): keydep(0), keydep_own(0), post(0), post_own(0), MaskedValues(0), pre_stats() {
 					init();
 					my_instruction = ptr;
 					known[ptr] = this;
@@ -95,7 +97,7 @@ namespace llvm
                     isPostKeyStart=false;
                     post_FirstToMeetKey = false;
                     post_own.reset();
-                    own.reset();
+                    keydep_own.reset();
                     hasToBeProtected_pre = false;
                     hasToBeProtected_post = false;
                     hasBeenMasked = false;

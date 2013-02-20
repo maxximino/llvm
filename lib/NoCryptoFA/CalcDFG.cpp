@@ -59,15 +59,15 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 		    ++I) {
             NoCryptoFA::known[I]->reset();
 			if(NoCryptoFA::known[I]->isAKeyStart) {
-				NoCryptoFA::known[I]->own = getOwnBitset(I);
+                NoCryptoFA::known[I]->keydep_own = getOwnBitset(I);
 				keyStarts.insert(I);
 			}
 			if(NoCryptoFA::known[I]->isAKeyOperation) {
 				int size = getOperandSize(I);
-				NoCryptoFA::known[I]->pre.resize(size);
+                NoCryptoFA::known[I]->keydep.resize(size);
 				NoCryptoFA::known[I]->post.resize(size);
 				for(int i = 0; i < size; ++i) {
-					NoCryptoFA::known[I]->pre[i] = bitset<MAX_KEYBITS>(0);
+                    NoCryptoFA::known[I]->keydep[i] = bitset<MAX_KEYBITS>(0);
 					NoCryptoFA::known[I]->post[i] = bitset<MAX_OUTBITS>(0);
 				}
                 calcDeadBits(I);
@@ -241,13 +241,13 @@ void CalcDFG::calcPost(Instruction* ptr)
 			}
 		}
 	}
-	CalcPostVisitor cpv;
+    CalcBackwardVisitor<MAX_OUTBITS,&NoCryptoFA::InstructionMetadata::post,&NoCryptoFA::InstructionMetadata::post_own> cbv;
 	for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
 		if(Instruction* _it = dyn_cast<Instruction>(*it)) {
 			NoCryptoFA::InstructionMetadata* usemd = NoCryptoFA::known[_it];
-			cpv.md = md;
-			cpv.usemd = usemd;
-			cpv.visit(_it);
+            cbv.md = md;
+            cbv.usemd = usemd;
+            cbv.visit(_it);
 		}
 	}
 	checkNeedsMasking_post(ptr, md);
@@ -298,18 +298,18 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
 	bool changed = false;
-	vector<bitset<MAX_KEYBITS> > oldPre = md->pre;
+    vector<bitset<MAX_KEYBITS> > oldPre = md->keydep;
 	bool oldProt = md->hasToBeProtected_pre;
-	ClearMatrix<MAX_KEYBITS>(md->pre);
-	CalcPreVisitor cpv;
-	cpv.visit(ptr);
+    ClearMatrix<MAX_KEYBITS>(md->keydep);
+    CalcForwardVisitor<MAX_KEYBITS,&NoCryptoFA::InstructionMetadata::keydep,&NoCryptoFA::InstructionMetadata::keydep_own> cfv;
+    cfv.visit(ptr);
 	checkNeedsMasking_pre(ptr, md);
-	if(!areVectorOfBitsetEqual<MAX_KEYBITS>(oldPre, md->pre)) { changed = true; }
+    if(!areVectorOfBitsetEqual<MAX_KEYBITS>(oldPre, md->keydep)) { changed = true; }
 	if(oldProt != md->hasToBeProtected_pre) { changed = true; }
 	if(md->hasMetPlaintext && md->isAKeyOperation && ptr->use_empty()) {
 		cipherOutPoints.insert(ptr);
 	}
-	if(changed || md->own.any()) {
+    if(changed || md->keydep_own.any()) {
 		if(!ptr->use_empty()) {
 			bool everyUseIsInCipher = true;
 			bool hasAtLeastOneUseInCipher = false;

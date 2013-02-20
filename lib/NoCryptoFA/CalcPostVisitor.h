@@ -1,7 +1,9 @@
 #include <llvm/Support/InstVisitor.h>
 using namespace llvm;
-
-class CalcPostVisitor : public InstVisitor<CalcPostVisitor>
+template<int MAXBITS,vector<bitset<MAXBITS> > NoCryptoFA::InstructionMetadata::*DATA,bitset<MAXBITS> NoCryptoFA::InstructionMetadata::*OWN>
+// For your own mental sanity, please see the comment about CalcForwardVisitor
+// This is exactly the same thing, but this sees everything from the bottom.
+class CalcBackwardVisitor : public InstVisitor<CalcBackwardVisitor<MAXBITS,DATA,OWN> >
 {
 	protected:
 		template<int NUMBITS>
@@ -27,21 +29,21 @@ class CalcPostVisitor : public InstVisitor<CalcPostVisitor>
 		NoCryptoFA::InstructionMetadata* md;
 		NoCryptoFA::InstructionMetadata* usemd;
 		void visitInstruction(Instruction& inst) {
-			int size = std::min(md->post.size(), usemd->post.size());
+            int size = std::min((md->*DATA).size(), (usemd->*DATA).size());
 			for(int i = 0; i < size; i++) {
-				md->post[i] |= usemd->post[i];
+                (md->*DATA)[i] |= (usemd->*DATA)[i];
 			}
 		}
 		void visitTrunc(CastInst& inst) {
-			int delta = md->post.size() - usemd->post.size();
-			for(unsigned int i = 0; i < usemd->post.size(); i++) {
-				md->post[delta + i] |= usemd->post[i];
+            int delta = (md->*DATA).size() - (usemd->*DATA).size();
+            for(unsigned int i = 0; i < (usemd->*DATA).size(); i++) {
+                (md->*DATA)[delta + i] |= (usemd->*DATA)[i];
 			}
 		}
 		void visitZExt(CastInst& inst) {
-			int delta = usemd->post.size() - md->post.size();
-			for(unsigned int i = 0; i < md->post.size(); i++) {
-				md->post[i] |= usemd->post[delta + i];
+            int delta = (usemd->*DATA).size() - (md->*DATA).size();
+            for(unsigned int i = 0; i < (md->*DATA).size(); i++) {
+                (md->*DATA)[i] |= (usemd->*DATA)[delta + i];
 			}
 		}
 		void visitSExt(CastInst& inst) { visitZExt(inst); }
@@ -56,10 +58,10 @@ class CalcPostVisitor : public InstVisitor<CalcPostVisitor>
                 ConstantInt* ci = cast<ConstantInt>(v_idx);
                 idx = ci->getLimitedValue();
             }
-            vector<bitset<MAX_OUTBITS> > toadd = usemd->post;
+            vector<bitset<MAX_OUTBITS> > toadd = (usemd->*DATA);
 			ShiftKeyBitset<MAX_OUTBITS>((direction ? 0 : 1), idx, toadd); //Invert direction.
-			for(unsigned int i = 0; i < md->post.size(); i++) {
-				md->post[i] |= toadd[i];
+            for(unsigned int i = 0; i < (md->*DATA).size(); i++) {
+                (md->*DATA)[i] |= toadd[i];
 			}
 		}
 		void visitShl(BinaryOperator& inst) { calcShift(inst, 1); }
@@ -81,20 +83,20 @@ class CalcPostVisitor : public InstVisitor<CalcPostVisitor>
 				return;
 			}
 			unsigned long mask = ci->getLimitedValue();
-			auto size = md->post.size();
+            auto size = (md->*DATA).size();
 			for(unsigned int i = 0; i < size; i++) {
 				if(is_bit_set(mask, i)) {
-					md->post[size - 1 - i] = md->post[size - 1 - i] | usemd->post[size - 1 - i];
+                    (md->*DATA)[size - 1 - i] = (md->*DATA)[size - 1 - i] | (usemd->*DATA)[size - 1 - i];
 				}
 			}
 		}
 		void calcAsBiggestSum(Instruction& inst) {
 			bitset<MAX_OUTBITS> ob(0);
-		for(bitset<MAX_OUTBITS> b: usemd->post) {
+        for(bitset<MAX_OUTBITS> b: (usemd->*DATA)) {
 				ob |= b;
 			}
-			for(unsigned int i = 0; i < md->post.size(); i++) {
-				md->post[i] |= ob;
+            for(unsigned int i = 0; i < (md->*DATA).size(); i++) {
+                (md->*DATA)[i] |= ob;
 			}
 		}
 		void visitMul(BinaryOperator& inst) {calcAsBiggestSum(inst);}
@@ -105,9 +107,9 @@ class CalcPostVisitor : public InstVisitor<CalcPostVisitor>
         void visitGetElementPtrInst(GetElementPtrInst& inst) {
             calcAsBiggestSum(inst);
             NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
-            for(int i = 0; i < md->post.size();i++ )
+            for(int i = 0; i < (md->*DATA).size();i++ )
             {
-                if(md->deadBits[i]) md->post[i].reset();
+                if(md->deadBits[i]) (md->*DATA)[i].reset();
             }
         }
 		void visitCallInst(CallInst& inst) {calcAsBiggestSum(inst);}

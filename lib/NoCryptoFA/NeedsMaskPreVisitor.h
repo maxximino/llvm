@@ -8,7 +8,7 @@ class NeedsMaskPreVisitor : public InstVisitor<NeedsMaskPreVisitor>
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
 			bool hasEmpty = false;
 			bool retval = false;
-		for(bitset<MAX_KEYBITS> b : md->pre) {
+        for(bitset<MAX_KEYBITS> b : md->keydep) {
 				if(b.count() < SecurityMargin.getValue()) {
 					hasEmpty = true;
 					break;

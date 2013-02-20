@@ -1,8 +1,23 @@
 #include <llvm/Support/InstVisitor.h>
 #include <llvm/NoCryptoFA/All.h>
 using namespace llvm;
+template<int MAXBITS,vector<bitset<MAXBITS> > NoCryptoFA::InstructionMetadata::*DATA,bitset<MAXBITS> NoCryptoFA::InstructionMetadata::*OWN>
+/*
+This template requires some explaination:
+This class is an InstructionVisitor (see LLVM doc.)
+ that writes correct key dependency information on instruction metadata, by reading
+ key dependency information on operands.
+This algorithm has TWO use cases:
+    * Propagating key dependency information from the userkey
+    * Propagating key dependency information from the vulnerable subkeys at the top of the algorithm.
+This means that the same algorithm should work on the same instructions, but referring to two different sets of dependencies.
 
-class CalcPreVisitor : public InstVisitor<CalcPreVisitor>
+This is implemented through the use of pointers-to-members, that means that everything is resolved at compile-time.
+
+So through this class you'll find *DATA and *OWN. They are not usual pointers-to-memory, but pointers-to-member.
+Template parameter MAXBITS is introduced to keep all of the bitsets of the first case smaller than those of the second.
+*/
+class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, OWN> >
 {
 	protected:
 		template<int NUMBITS>
@@ -29,15 +44,15 @@ class CalcPreVisitor : public InstVisitor<CalcPreVisitor>
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
 			for(User::const_op_iterator it = inst.op_begin(); it != inst.op_end(); ++it) {
 				if(Instruction* _it = dyn_cast<Instruction>(*it)) {
-					int size = std::min(NoCryptoFA::known[_it]->pre.size(), md->pre.size());
+                    int size = std::min((NoCryptoFA::known[_it]->*DATA).size(), (md->*DATA).size());
 					for(int i = 0; i < size; ++i) {
-						md->pre[i] =  md->pre[i] | NoCryptoFA::known[_it]->pre[i];
-						if(NoCryptoFA::known[_it]->own.any()) {
-							md->pre[i] = md->pre[i] | NoCryptoFA::known[_it]->own; //TODO: diagonale, non blocchettino!
+                        (md->*DATA)[i] =  (md->*DATA)[i] | (NoCryptoFA::known[_it]->*DATA)[i];
+                        if((NoCryptoFA::known[_it]->*OWN).any()) {
+                            (md->*DATA)[i] = (md->*DATA)[i] | NoCryptoFA::known[_it]->*OWN; //TODO: diagonale, non blocchettino!
 						}
 					}
 				}
-			}
+            }
 		}
 		void visitTrunc(CastInst& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
@@ -45,14 +60,14 @@ class CalcPreVisitor : public InstVisitor<CalcPreVisitor>
 			unsigned int to = CalcDFG::getOperandSize(inst.getDestTy());
 			unsigned int diff = from - to;
 			NoCryptoFA::InstructionMetadata* other = NoCryptoFA::known[cast<Instruction>(inst.getOperand(0))];
-			for(unsigned int i = 0; i < md->pre.size(); i++) { md->pre[i] = other->pre[diff + i]; }
+            for(unsigned int i = 0; i < (md->*DATA).size(); i++) { (md->*DATA)[i] = (other->*DATA)[diff + i]; }
 		}
 		void visitZExt(CastInst& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
 			visitInstruction(inst);
 			int from = CalcDFG::getOperandSize(inst.getSrcTy());
 			int to = CalcDFG::getOperandSize(inst.getDestTy());
-			ShiftKeyBitset<MAX_KEYBITS>(0, to - from, md->pre);
+            ShiftKeyBitset<MAXBITS>(0, to - from, md->*DATA);
 		}
 		void visitSExt(CastInst& inst) { visitZExt(inst); }
 		void calcShift(BinaryOperator& inst, int direction) { //0=>right, 1=>left
@@ -68,7 +83,7 @@ class CalcPreVisitor : public InstVisitor<CalcPreVisitor>
                 idx = ci->getLimitedValue();
             }
 			visitInstruction(inst);
-			ShiftKeyBitset<MAX_KEYBITS>(direction, idx, md->pre);
+            ShiftKeyBitset<MAXBITS>(direction, idx, md->*DATA);
 		}
 		void visitShl(BinaryOperator& inst) { calcShift(inst, 1); }
 		void visitLShr(BinaryOperator& inst) { calcShift(inst, 0);}
@@ -91,33 +106,33 @@ class CalcPreVisitor : public InstVisitor<CalcPreVisitor>
 			}
 			unsigned long mask = ci->getLimitedValue();
 			NoCryptoFA::InstructionMetadata* other = NoCryptoFA::known[i];
-			auto size = md->pre.size();
+            auto size = (md->*DATA).size();
 #define is_bit_set(what,num) ((what) & (1<<(num)))
 			for(unsigned int i = 0; i < size; i++) {
 				if(is_bit_set(mask, i)) {
-					md->pre[size - 1 - i] = other->pre[size - 1 - i];
+                    (md->*DATA)[size - 1 - i] = (other->*DATA)[size - 1 - i];
 				} else {
-					md->pre[size - 1 - i] = bitset<MAX_KEYBITS>(0);
+                    (md->*DATA)[size - 1 - i] = bitset<MAXBITS>(0);
 				}
 			}
 		}
 		void calcAsBiggestSum(Instruction& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
-			bitset<MAX_KEYBITS> max(0);
+            bitset<MAXBITS> max(0);
 			for(User::const_op_iterator it = inst.op_begin(); it != inst.op_end(); ++it) {
 				if(Instruction* _it = dyn_cast<Instruction>(*it)) {
-					int size = NoCryptoFA::known[_it]->pre.size();
+                    int size = (NoCryptoFA::known[_it]->*DATA).size();
 					for(int i = 0; i < size; ++i) {
-						max |= NoCryptoFA::known[_it]->pre[i];
-						if(NoCryptoFA::known[_it]->own.any()) {
-							max |= NoCryptoFA::known[_it]->own;
+                        max |= (NoCryptoFA::known[_it]->*DATA)[i];
+                        if((NoCryptoFA::known[_it]->*OWN).any()) {
+                            max |= NoCryptoFA::known[_it]->*OWN;
 						}
 					}
 				}
 			}
-			int size = md->pre.size();
+            int size = (md->*DATA).size();
 			for(int i = 0; i < size; ++i) {
-				md->pre[i] =  max;
+                (md->*DATA)[i] =  max;
 			}
 		}
 		void visitMul(BinaryOperator& inst) {calcAsBiggestSum(inst);}
@@ -129,28 +144,28 @@ class CalcPreVisitor : public InstVisitor<CalcPreVisitor>
         void visitGetElementPtrInst(GetElementPtrInst& inst) {
             calcAsBiggestSum(inst);
             NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
-            for(int i = 0; i < md->pre.size();i++ )
+            for(unsigned long i = 0; i < (md->*DATA).size();i++ )
             {
-                if(md->deadBits[i]) md->pre[i].reset();
+                if(md->deadBits[i]) (md->*DATA)[i].reset();
             }
         }
 		void visitCallInst(CallInst& inst) {calcAsBiggestSum(inst);}
 		void visitSelectInst(SelectInst& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
-			bitset<MAX_KEYBITS> tmp(0);
-			int size = md->pre.size();
+            bitset<MAXBITS> tmp(0);
+            int size = (md->*DATA).size();
 			Instruction* trueval = cast<Instruction>(inst.getTrueValue());
 			Instruction* falseval = cast<Instruction>(inst.getFalseValue());
 			for(int i = 0; i < size; ++i) {
-				tmp |= NoCryptoFA::known[trueval]->pre[i];
-				tmp |= NoCryptoFA::known[falseval]->pre[i];
-				if(NoCryptoFA::known[trueval]->own.any()) {
-					tmp |= NoCryptoFA::known[trueval]->own;
+                tmp |= (NoCryptoFA::known[trueval]->*DATA)[i];
+                tmp |= (NoCryptoFA::known[falseval]->*DATA)[i];
+                if((NoCryptoFA::known[trueval]->*OWN).any()) {
+                    tmp |= NoCryptoFA::known[trueval]->*OWN;
 				}
-				if(NoCryptoFA::known[falseval]->own.any()) {
-					tmp |= NoCryptoFA::known[falseval]->own;
+                if((NoCryptoFA::known[falseval]->*OWN).any()) {
+                    tmp |= NoCryptoFA::known[falseval]->*OWN;
 				}
-				md->pre[i] = tmp;
+                (md->*DATA)[i] = tmp;
 			}
 		}
 };
