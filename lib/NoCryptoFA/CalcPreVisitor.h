@@ -1,4 +1,5 @@
 #include <llvm/Support/InstVisitor.h>
+#include <llvm/NoCryptoFA/All.h>
 using namespace llvm;
 
 class CalcPreVisitor : public InstVisitor<CalcPreVisitor>
@@ -125,7 +126,14 @@ class CalcPreVisitor : public InstVisitor<CalcPreVisitor>
 		void visitURem(BinaryOperator& inst) {calcAsBiggestSum(inst);}
 		void visitSRem(BinaryOperator& inst) {calcAsBiggestSum(inst);}
 
-		void visitGetElementPtrInst(GetElementPtrInst& inst) {calcAsBiggestSum(inst);}
+        void visitGetElementPtrInst(GetElementPtrInst& inst) {
+            calcAsBiggestSum(inst);
+            NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
+            for(int i = 0; i < md->pre.size();i++ )
+            {
+                if(md->deadBits[i]) md->pre[i].reset();
+            }
+        }
 		void visitCallInst(CallInst& inst) {calcAsBiggestSum(inst);}
 		void visitSelectInst(SelectInst& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];

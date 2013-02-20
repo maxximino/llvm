@@ -102,6 +102,13 @@ class CalcPostVisitor : public InstVisitor<CalcPostVisitor>
 		void visitSMul(BinaryOperator& inst) {calcAsBiggestSum(inst);}
 		void visitURem(BinaryOperator& inst) {calcAsBiggestSum(inst);}
 		void visitSRem(BinaryOperator& inst) {calcAsBiggestSum(inst);}
-		void visitGetElementPtrInst(GetElementPtrInst& inst) {calcAsBiggestSum(inst);}
+        void visitGetElementPtrInst(GetElementPtrInst& inst) {
+            calcAsBiggestSum(inst);
+            NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
+            for(int i = 0; i < md->post.size();i++ )
+            {
+                if(md->deadBits[i]) md->post[i].reset();
+            }
+        }
 		void visitCallInst(CallInst& inst) {calcAsBiggestSum(inst);}
 };

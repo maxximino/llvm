@@ -26,11 +26,12 @@ void checkNeedsMasking_post(Instruction* ptr, NoCryptoFA::InstructionMetadata* m
 #include "CalcPostVisitor.h"
 #include "NeedsMaskPreVisitor.h"
 #include "NeedsMaskPostVisitor.h"
+#include "DeadBits.h"
 char llvm::CalcDFG::ID = 218;
 
 CalcDFG* llvm::createCalcDFGPass()
 {
-	return new CalcDFG();
+    return new CalcDFG();
 }
 
 bool CalcDFG::runOnFunction(llvm::Function& Fun)
@@ -69,6 +70,7 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 					NoCryptoFA::known[I]->pre[i] = bitset<MAX_KEYBITS>(0);
 					NoCryptoFA::known[I]->post[i] = bitset<MAX_OUTBITS>(0);
 				}
+                calcDeadBits(I);
 			}
 		}
 	}
@@ -289,7 +291,7 @@ bool CalcDFG::lookForBackwardsKeyPoints(llvm::Instruction* ptr)
 			toBeVisited.insert(_it);
 		}
 	}
-    if(outLatestPos >= keyLatestPos)    errs() << "stop: outlatestpos " << outLatestPos << " klp " << keyLatestPos << "\n";
+    //if(outLatestPos >= keyLatestPos)    errs() << "stop: outlatestpos " << outLatestPos << " klp " << keyLatestPos << "\n";
 	return outLatestPos >= keyLatestPos;
 }
 void CalcDFG::calcPre(llvm::Instruction* ptr)
@@ -322,7 +324,7 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
 				}
 			}
 			if(hasAtLeastOneUseInCipher && (!(ptr->use_empty())) && (!md->hasMetPlaintext)) {
-                errs() << "Candidato: " << ptr->getDebugLoc().getLine() << *ptr << "\n";
+                //  errs() << "Candidato: " << ptr->getDebugLoc().getLine() << *ptr << "\n";
 				candidatekeyPostPoints.insert(ptr);
 			}
 		}

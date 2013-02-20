@@ -9,7 +9,7 @@
 #include <array>
 #define MAX_KEYBITS 256
 #define MAX_OUTBITS 256
-
+#define MAX_VALBITS 64
 using namespace std;
 using namespace llvm;
 
@@ -68,6 +68,10 @@ namespace llvm
 				std::vector<Value*> MaskedValues;
 				StatisticInfo pre_stats;
 				StatisticInfo post_stats;
+                /*Only for SBOXes {*/
+                bool deadBitsCalculated;
+                std::bitset<MAX_VALBITS> deadBits;
+                /* } */
 				InstructionMetadata(Instruction* ptr): pre(0), own(0), post(0), post_own(0), MaskedValues(0), pre_stats() {
 					init();
 					my_instruction = ptr;
@@ -105,6 +109,7 @@ namespace llvm
 					isSbox = false;
 					hasMetPlaintext = false;
                     PlaintextHeight=0;
+                    deadBitsCalculated = false;
                     reset();
 				}
 
