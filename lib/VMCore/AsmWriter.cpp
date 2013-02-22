@@ -39,6 +39,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/FormattedStream.h"
 #include <algorithm>
+#include <map>
 #include <cctype>
 using namespace llvm;
 
@@ -405,6 +406,12 @@ private:
 
 }  // end anonymous namespace
 
+static SlotTracker& cached_SlotTracker(const Function* F){
+    static std::map<const Function*,SlotTracker*> cache;
+    if(cache.find(F) != cache.end()){ return *cache[F];}
+    cache[F] = new SlotTracker(F);
+    return *cache[F];
+}
 
 static SlotTracker *createSlotTracker(const Value *V) {
   if (const Argument *FA = dyn_cast<Argument>(V))
@@ -2106,7 +2113,7 @@ void Value::print(raw_ostream &ROS, AssemblyAnnotationWriter *AAW) const {
   formatted_raw_ostream OS(ROS);
   if (const Instruction *I = dyn_cast<Instruction>(this)) {
     const Function *F = I->getParent() ? I->getParent()->getParent() : 0;
-    SlotTracker SlotTable(F);
+    SlotTracker& SlotTable = cached_SlotTracker(F);
     AssemblyWriter W(OS, SlotTable, getModuleFromVal(I), AAW);
     W.printInstruction(*I);
   } else if (const BasicBlock *BB = dyn_cast<BasicBlock>(this)) {
