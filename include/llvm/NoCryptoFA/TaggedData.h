@@ -58,6 +58,7 @@ namespace llvm
 				bool hasBeenMasked;
 				bool hasMetPlaintext;
                 long PlaintextHeight;
+                std::string NodeName;
 				InstructionSource origin;
                 std::vector<std::bitset<MAX_KEYBITS> > keydep;
                 std::bitset<MAX_KEYBITS> keydep_own;
@@ -103,7 +104,14 @@ namespace llvm
                     hasBeenMasked = false;
 
                 }
+                std::string& getAsString(){
+                    if(representation.length() > 0) return representation;
+                    llvm::raw_string_ostream os(representation);
+                    os << my_instruction;
+                    return representation;
+                }
 			private:
+                std::string representation;
 				void init() {
 					origin = InstructionMetadata::ORIGINAL_PROGRAM;
                     isAKeyOperation = false;

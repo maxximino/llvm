@@ -47,10 +47,13 @@ namespace llvm
 				return "DFGPrinter";
 			}
 			virtual void print(raw_ostream& OS, const Module*) const;
-
+            virtual void doCSV(Module& M);
+            virtual void doHTML(Module& M);
+            virtual void doDOT(Module& M);
 		private:
 			std::map<Instruction*, MyNodeType*> instrnodemap;
 			MyNodeType* rootptr;
+
 
 	};
 	DFGPrinter* createDFGPrinterPass();

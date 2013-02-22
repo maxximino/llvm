@@ -23,9 +23,19 @@
 #include <llvm/ADT/GraphTraits.h>
 #include <llvm/IntrinsicInst.h>
 #include <llvm/NoCryptoFA/All.h>
-
+#include <llvm/Support/CommandLine.h>
 using namespace llvm;
 using namespace std;
+
+static cl::opt<bool>
+PrintDot("print-dot", cl::init(true), cl::ValueOptional,
+               cl::desc("Print DOT file on stdout"));
+static cl::opt<bool>
+PrintCSV("print-csv", cl::init(true), cl::ValueOptional,
+               cl::desc("Print CSV file on out.dir/function_name.csv"));
+static cl::opt<bool>
+PrintHTML("print-html", cl::init(true), cl::ValueOptional,
+               cl::desc("Print an html file for each node of dot file in outdir/nodename.html"));
 
 MyNodeType* MyNodeType::rootnode = NULL;
 namespace llvm
@@ -246,184 +256,236 @@ for(bitset<NUMBITS> cur: vect) {
 	if(avgcnt > 0) { stat.avg = stat.avg / avgcnt; }
 	if(avgnzcnt > 0) { stat.avg_nonzero = stat.avg_nonzero / avgnzcnt; }
 }
-bool DFGPrinter::runOnModule(llvm::Module& M)
-{
-	MyNodeType* cur;
-	bool added;
-	multimap<Instruction*, MyNodeType*> future_edges;
-	for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
-		MyNodeType* me = new MyNodeType(F->getName());
-		rootptr->addChildren(me);
-		instrnodemap.clear();
-		future_edges.clear();
-		for(llvm::Function::iterator BB = F->begin(),
-		    FE = F->end();
-		    BB != FE;
-		    ++BB) {
-			CalcDFG& cd = getAnalysis<CalcDFG>(*F);
-			TaggedData& td = getAnalysis<TaggedData>(*F);
-			string instr_dump_str = string();
-			llvm::raw_string_ostream instr_dump(instr_dump_str);
-			instr_dump << "Pre_Max;Pre_Min;Pre_MinNZ;Pre_Avg;Pre_AvgNZ;";
-			instr_dump << "Post_Max;Post_Min;Post_MinNZ;Post_Avg;Post_AvgNZ;";
+void DFGPrinter::doCSV(Module& M){
+    for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
+        for(llvm::Function::iterator BB = F->begin(),
+            FE = F->end();
+            BB != FE;
+            ++BB) {
+            CalcDFG& cd = getAnalysis<CalcDFG>(*F);
+            TaggedData& td = getAnalysis<TaggedData>(*F);
+            string instr_dump_str = string();
+            instr_dump_str.reserve(200*1024*1024); //200M, yes, I hate having to re-alloc something. Even if it is transparent to the developer. I need to use those 16GB of RAM.
+            llvm::raw_string_ostream instr_dump(instr_dump_str);
+            instr_dump << "Pre_Max;Pre_Min;Pre_MinNZ;Pre_Avg;Pre_AvgNZ;";
+            instr_dump << "Post_Max;Post_Min;Post_MinNZ;Post_Avg;Post_AvgNZ;";
             instr_dump << "Min_MinNZ;Plaintext;PTHeight;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
-			// parte per output dettagliato
+            // parte per output dettagliato
             instr_dump << "IsAKeyOp;IsAKeyStart;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;ValueSize;pre;pre_own;post;post_own;";
-			// fine parte per output dettagliato
-			instr_dump << "\"Full instruction\"\n";
-			if(!td.functionMarked(&(*F))) { continue; }
-			for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
-				if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
-				std::string outp;
-				llvm::raw_string_ostream os (outp);
-				std::stringstream boxcont("");
-				std::stringstream fname("");
-				boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/></head><body><pre>";
-				os << *i << "\n";
-				llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
+            // fine parte per output dettagliato
+            instr_dump << "\"Full instruction\"\n";
+            if(!td.functionMarked(&(*F))) { continue; }
+            for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
+                if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
+                llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
                 calcStatistics<MAX_SUBBITS>(md->pre_stats, md->pre);
                 calcStatistics<MAX_SUBBITS>(md->post_stats, md->post);
-				instr_dump << md->pre_stats.max << ";";
-				instr_dump << md->pre_stats.min << ";";
-				instr_dump << md->pre_stats.min_nonzero << ";";
-				instr_dump << md->pre_stats.avg << ";";
-				instr_dump << md->pre_stats.avg_nonzero << ";";
-				instr_dump << md->post_stats.max << ";";
-				instr_dump << md->post_stats.min << ";";
-				instr_dump << md->post_stats.min_nonzero << ";";
-				instr_dump << md->post_stats.avg << ";";
-				instr_dump << md->post_stats.avg_nonzero << ";";
-				instr_dump << std::min(md->pre_stats.min_nonzero, md->post_stats.min_nonzero) << ";";
-				instr_dump << md->hasMetPlaintext << ";";
+                instr_dump << md->pre_stats.max << ";";
+                instr_dump << md->pre_stats.min << ";";
+                instr_dump << md->pre_stats.min_nonzero << ";";
+                instr_dump << md->pre_stats.avg << ";";
+                instr_dump << md->pre_stats.avg_nonzero << ";";
+                instr_dump << md->post_stats.max << ";";
+                instr_dump << md->post_stats.min << ";";
+                instr_dump << md->post_stats.min_nonzero << ";";
+                instr_dump << md->post_stats.avg << ";";
+                instr_dump << md->post_stats.avg_nonzero << ";";
+                instr_dump << std::min(md->pre_stats.min_nonzero, md->post_stats.min_nonzero) << ";";
+                instr_dump << md->hasMetPlaintext << ";";
                 instr_dump << md->PlaintextHeight << ";";
-				instr_dump << md->hasToBeProtected_pre << ";";
-				instr_dump << md->hasToBeProtected_post << ";";
-				instr_dump << (md->hasToBeProtected_pre | md->hasToBeProtected_post) << ";";
-				if(i->getDebugLoc().isUnknown()) {
-					instr_dump << "UNKNOWN;UNKNOWN;";
-				} else {
-					instr_dump << i->getDebugLoc().getLine() << ";";
-					instr_dump << i->getDebugLoc().getCol() << ";";
-				}
-				// parte per output dettagliato
-				instr_dump << md->isAKeyOperation << ";";
-				instr_dump << md->isAKeyStart << ";";
-				instr_dump << md->isPostKeyStart << ";";
-				instr_dump << md->isSbox << ";";
-				instr_dump << md->post_FirstToMeetKey << ";";
-				instr_dump << md->hasBeenMasked << ";";
-				instr_dump << md->origin << ";";
+                instr_dump << md->hasToBeProtected_pre << ";";
+                instr_dump << md->hasToBeProtected_post << ";";
+                instr_dump << (md->hasToBeProtected_pre | md->hasToBeProtected_post) << ";";
+                if(i->getDebugLoc().isUnknown()) {
+                    instr_dump << "UNKNOWN;UNKNOWN;";
+                } else {
+                    instr_dump << i->getDebugLoc().getLine() << ";";
+                    instr_dump << i->getDebugLoc().getCol() << ";";
+                }
+                // parte per output dettagliato
+                instr_dump << md->isAKeyOperation << ";";
+                instr_dump << md->isAKeyStart << ";";
+                instr_dump << md->isPostKeyStart << ";";
+                instr_dump << md->isSbox << ";";
+                instr_dump << md->post_FirstToMeetKey << ";";
+                instr_dump << md->hasBeenMasked << ";";
+                instr_dump << md->origin << ";";
                 instr_dump << md->pre.size() << ";";
+                /* Keep the code here, it might get useful in a far future... actually, it's not worth the time and filesize increase.
                 instr_dump << print_syntethic<MAX_SUBBITS>(md->pre) << ";";
                 instr_dump << printbs_syntethic<MAX_SUBBITS>(md->pre_own) << ";";
                 instr_dump << print_syntethic<MAX_SUBBITS>(md->post) << ";";
-                instr_dump << printbs_syntethic<MAX_SUBBITS>(md->post_own) << ";";
-				// fine parte per output dettagliato
-				instr_dump << "\"" << *i << "\"\n";
-				if(md->isAKeyOperation) {
-					if(md->isAKeyStart) {
-						os << "KeyStart" << "\n";
-					}
+                instr_dump << printbs_syntethic<MAX_SUBBITS>(md->post_own) << ";";*/
+                instr_dump << ";;;;";
+                // fine parte per output dettagliato
+                instr_dump << "\"" << md->getAsString() << "\"\n";
+            }
+            outFile(F->getName().str().append(".csv"), instr_dump.str());
+        }
+    }
+
+}
+void DFGPrinter::doHTML(Module& M){
+    for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
+        for(llvm::Function::iterator BB = F->begin(),
+            FE = F->end();
+            BB != FE;
+            ++BB) {
+            CalcDFG& cd = getAnalysis<CalcDFG>(*F);
+            TaggedData& td = getAnalysis<TaggedData>(*F);
+            if(!td.functionMarked(&(*F))) { continue; }
+            for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
+                if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
+                std::string outp;
+                outp.reserve(200*1024); //200k. Smaller :)
+                llvm::raw_string_ostream os (outp);
+                std::stringstream boxcont("");
+                std::stringstream fname("");
+                boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/></head><body><pre>";
+                llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
+                os << md->getAsString() << "\n";
+                if(md->isAKeyOperation) {
+                    if(md->isAKeyStart) {
+                        os << "KeyStart" << "\n";
+                    }
                     os << "<Own:" << printbs_small<MAX_SUBBITS>(md->pre_own) << ",Pre:" << printvec_small<MAX_SUBBITS>(md->pre) << ",Post_Own:" << printbs_small<MAX_SUBBITS>(md->post_own) << ",Post:" << printvec_small<MAX_SUBBITS>(md->post) << ">" << "\n";
-				}
-				boxcont << os.str() << "\n";
-				if(md->post_FirstToMeetKey) {
-					boxcont << "Primo ad incontrare la chiave backwards\n";
-				}
-				if(md->hasMetPlaintext) {
+                }
+                boxcont << os.str() << "\n";
+                if(md->post_FirstToMeetKey) {
+                    boxcont << "Primo ad incontrare la chiave backwards\n";
+                }
+                if(md->hasMetPlaintext) {
                     boxcont << "Ha incontrato il plaintext (" << md->PlaintextHeight << ")\n";
-				} else {
-					boxcont << "Non ha incontrato il plaintext\n";
-				}
-				switch(md->origin) {
-					case NoCryptoFA::InstructionMetadata::AND_MASKED:
-						boxcont << "Origine istruzione: Mascheratura di un AND\n";
-						break;
-					case NoCryptoFA::InstructionMetadata::CREATE_MASK:
-						boxcont << "Origine istruzione: Inserimento maschera\n";
-						break;
-					case NoCryptoFA::InstructionMetadata::SHIFT_MASKED:
-						boxcont << "Origine istruzione: Mascheratura di uno shift\n";
-						break;
-					case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
-						boxcont << "Origine istruzione: Programma originale\n";
-						break;
-					case NoCryptoFA::InstructionMetadata::REMOVE_MASK:
-						boxcont << "Origine istruzione: Rimozione maschera\n";
-						break;
-					case NoCryptoFA::InstructionMetadata::XOR_MASKED:
-						boxcont << "Origine istruzione: Mascheratura di uno XOR\n";
-						break;
-					case NoCryptoFA::InstructionMetadata::CAST_MASKED:
-						boxcont << "Origine istruzione: Mascheratura di un CAST\n";
-						break;
-					case NoCryptoFA::InstructionMetadata::SBOX_MASKED:
-						boxcont << "Origine istruzione: Mascheratura di un lookup ad una SBOX\n";
-						break;
-					case NoCryptoFA::InstructionMetadata::SELECT_MASKED:
-						boxcont << "Origine istruzione: Mascheratura di una SELECT\n";
-						break;
-					case NoCryptoFA::InstructionMetadata::MASKED_FUNCTION:
-						boxcont << "Origine istruzione: Mascheratura di funzione intera\n";
-						break;
-				}
+                } else {
+                    boxcont << "Non ha incontrato il plaintext\n";
+                }
+                switch(md->origin) {
+                    case NoCryptoFA::InstructionMetadata::AND_MASKED:
+                        boxcont << "Origine istruzione: Mascheratura di un AND\n";
+                        break;
+                    case NoCryptoFA::InstructionMetadata::CREATE_MASK:
+                        boxcont << "Origine istruzione: Inserimento maschera\n";
+                        break;
+                    case NoCryptoFA::InstructionMetadata::SHIFT_MASKED:
+                        boxcont << "Origine istruzione: Mascheratura di uno shift\n";
+                        break;
+                    case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
+                        boxcont << "Origine istruzione: Programma originale\n";
+                        break;
+                    case NoCryptoFA::InstructionMetadata::REMOVE_MASK:
+                        boxcont << "Origine istruzione: Rimozione maschera\n";
+                        break;
+                    case NoCryptoFA::InstructionMetadata::XOR_MASKED:
+                        boxcont << "Origine istruzione: Mascheratura di uno XOR\n";
+                        break;
+                    case NoCryptoFA::InstructionMetadata::CAST_MASKED:
+                        boxcont << "Origine istruzione: Mascheratura di un CAST\n";
+                        break;
+                    case NoCryptoFA::InstructionMetadata::SBOX_MASKED:
+                        boxcont << "Origine istruzione: Mascheratura di un lookup ad una SBOX\n";
+                        break;
+                    case NoCryptoFA::InstructionMetadata::SELECT_MASKED:
+                        boxcont << "Origine istruzione: Mascheratura di una SELECT\n";
+                        break;
+                    case NoCryptoFA::InstructionMetadata::MASKED_FUNCTION:
+                        boxcont << "Origine istruzione: Mascheratura di funzione intera\n";
+                        break;
+                }
 
                 boxcont << "Value size:" << md->pre.size() << "\n";
-				if(!i->getDebugLoc().isUnknown()) {
-					boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
-				}
-				if(md->isAKeyOperation) {
+                if(!i->getDebugLoc().isUnknown()) {
+                    boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
+                }
+                if(md->isAKeyOperation) {
                     boxcont << "Own:" << printbs_large<MAX_SUBBITS>(md->pre_own) << "\nPre:" << printvec_large<MAX_SUBBITS>(md->pre);
                     boxcont << "\nPost_Own:" << printbs_large<MAX_SUBBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_SUBBITS>(md->post);
-				}
-				cur = new MyNodeType(os.str());
-				fname << "Node" << cur << ".html";
-				boxcont << "</pre></body></html>";
-				outFile(fname.str(), boxcont.str());
-				instrnodemap.insert(std::make_pair(i, cur));
-				pair<multimap<Instruction*, MyNodeType*>::iterator, multimap<Instruction*, MyNodeType*>::iterator> range = future_edges.equal_range(i);
-				for(multimap<Instruction*, MyNodeType*>::iterator it = range.first; it != range.second; ++it) {
-					cur->addChildren(it->second);
-				}
-				cur->md = td.getMD(i);
-				cur->hasToBeProtected = cd.shouldBeProtected(i);
-				added = false;
-				if(isa<PHINode>(i)) {
-					PHINode* p = cast<PHINode>(i);
-					for(unsigned int n = 0; n < p->getNumIncomingValues(); n++) {
-						if(isa<Instruction>(p->getIncomingValue(n))) {
-							Instruction* _it = cast<Instruction>(p->getIncomingValue(n));
-							if(instrnodemap.find(_it) != instrnodemap.end()) {
-								instrnodemap.at(_it)->addChildren(cur);
-								added = true;
-							} else {
-								future_edges.insert(std::make_pair(_it, cur));
-								// added=true; // Rischio "isole" sconnesse, che non apparirebbero nel grafo.
-							}
-						}
-					}
-				} else {
-					for(User::const_op_iterator it = i->op_begin(); it != i->op_end(); ++it) {
-						if(isa<Instruction>(it->get())) {
-							Instruction* _it = cast<Instruction>(it->get());
-							if(instrnodemap.find(_it) != instrnodemap.end()) {
-								instrnodemap.at(_it)->addChildren(cur);
-								added = true;
-							} else {
-								future_edges.insert(std::make_pair(_it, cur));
-								// added=true; // Rischio "isole" sconnesse, che non apparirebbero nel grafo.
-							}
-						}
-					}
-				}
-				if(!added) { me->addChildren(cur); }
-			}
-			outFile(F->getName().str().append(".dat"), instr_dump.str());
-		}
-	}
-	return false;
+                }
+                fname << md->NodeName << ".html";
+                boxcont << "</pre></body></html>";
+                outFile(fname.str(), boxcont.str());
+        }
+    }
+  }
 }
-
+void DFGPrinter::doDOT(Module& M){
+    MyNodeType* cur;
+    bool added;
+    multimap<Instruction*, MyNodeType*> future_edges;
+    for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
+        MyNodeType* me = new MyNodeType(F->getName());
+        rootptr->addChildren(me);
+        instrnodemap.clear();
+        future_edges.clear();
+        for(llvm::Function::iterator BB = F->begin(),
+            FE = F->end();
+            BB != FE;
+            ++BB) {
+            CalcDFG& cd = getAnalysis<CalcDFG>(*F);
+            TaggedData& td = getAnalysis<TaggedData>(*F);
+            if(!td.functionMarked(&(*F))) { continue; }
+            for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
+                if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
+                std::string outp;
+                outp.reserve(1024);
+                llvm::raw_string_ostream os (outp);
+                llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
+                os << md->getAsString() << "\n";
+                if(md->isAKeyOperation) {
+                    if(md->isAKeyStart) {
+                        os << "KeyStart" << "\n";
+                    }
+                }
+                cur = new MyNodeType(os.str());
+                instrnodemap.insert(std::make_pair(i, cur));
+                pair<multimap<Instruction*, MyNodeType*>::iterator, multimap<Instruction*, MyNodeType*>::iterator> range = future_edges.equal_range(i);
+                for(multimap<Instruction*, MyNodeType*>::iterator it = range.first; it != range.second; ++it) {
+                    cur->addChildren(it->second);
+                }
+                stringstream tmp;
+                tmp << "Node" << cur;
+                md->NodeName = tmp.str();
+                cur->md = md;
+                cur->hasToBeProtected = cd.shouldBeProtected(i);
+                added = false;
+                if(isa<PHINode>(i)) {
+                    PHINode* p = cast<PHINode>(i);
+                    for(unsigned int n = 0; n < p->getNumIncomingValues(); n++) {
+                        if(isa<Instruction>(p->getIncomingValue(n))) {
+                            Instruction* _it = cast<Instruction>(p->getIncomingValue(n));
+                            if(instrnodemap.find(_it) != instrnodemap.end()) {
+                                instrnodemap.at(_it)->addChildren(cur);
+                                added = true;
+                            } else {
+                                future_edges.insert(std::make_pair(_it, cur));
+                                // added=true; // Rischio "isole" sconnesse, che non apparirebbero nel grafo.
+                            }
+                        }
+                    }
+                } else {
+                    for(User::const_op_iterator it = i->op_begin(); it != i->op_end(); ++it) {
+                        if(isa<Instruction>(it->get())) {
+                            Instruction* _it = cast<Instruction>(it->get());
+                            if(instrnodemap.find(_it) != instrnodemap.end()) {
+                                instrnodemap.at(_it)->addChildren(cur);
+                                added = true;
+                            } else {
+                                future_edges.insert(std::make_pair(_it, cur));
+                                // added=true; // Rischio "isole" sconnesse, che non apparirebbero nel grafo.
+                            }
+                        }
+                    }
+                }
+                if(!added) { me->addChildren(cur); }
+            }
+        }
+    }
+}
+bool DFGPrinter::runOnModule(llvm::Module& M){
+    if(PrintDot) doDOT(M);
+    if(PrintHTML) doHTML(M);
+    if(PrintCSV) doCSV(M);
+    return false;
+}
 
 void DFGPrinter::getAnalysisUsage(llvm::AnalysisUsage& AU) const
 {
