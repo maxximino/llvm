@@ -40,6 +40,7 @@
 #include "llvm/Support/FormattedStream.h"
 #include <algorithm>
 #include <map>
+#include <memory>
 #include <cctype>
 using namespace llvm;
 
@@ -166,7 +167,7 @@ class TypePrinting {
 public:
 
   /// NamedTypes - The named types that are used by the current module.
-  TypeFinder NamedTypes;
+  std::shared_ptr<TypeFinder> NamedTypes;
 
   /// NumberedTypes - The numbered types, along with their value.
   DenseMap<StructType*, unsigned> NumberedTypes;
@@ -185,14 +186,23 @@ public:
 
 
 void TypePrinting::incorporateTypes(const Module &M) {
-  NamedTypes.run(M, false);
+  static std::map<const Module*, std::shared_ptr<TypeFinder> > cache;
+  if(cache.find(&M) != cache.end()) {
+      NamedTypes = cache[&M];
+  }
+  else{
+      cache[&M] =  std::shared_ptr<TypeFinder>(new TypeFinder());
+      cache[&M]->run(M, false);
+      NamedTypes = cache[&M];
+  }
+
 
   // The list of struct types we got back includes all the struct types, split
   // the unnamed ones out to a numbering and remove the anonymous structs.
   unsigned NextNumber = 0;
 
-  std::vector<StructType*>::iterator NextToUse = NamedTypes.begin(), I, E;
-  for (I = NamedTypes.begin(), E = NamedTypes.end(); I != E; ++I) {
+  std::vector<StructType*>::iterator NextToUse = NamedTypes->begin(), I, E;
+  for (I = NamedTypes->begin(), E = NamedTypes->end(); I != E; ++I) {
     StructType *STy = *I;
 
     // Ignore anonymous types.
@@ -205,7 +215,7 @@ void TypePrinting::incorporateTypes(const Module &M) {
       *NextToUse++ = STy;
   }
 
-  NamedTypes.erase(NextToUse, NamedTypes.end());
+  NamedTypes->erase(NextToUse, NamedTypes->end());
 }
 
 
@@ -1500,7 +1510,7 @@ void AssemblyWriter::printAlias(const GlobalAlias *GA) {
 
 void AssemblyWriter::printTypeIdentities() {
   if (TypePrinter.NumberedTypes.empty() &&
-      TypePrinter.NamedTypes.empty())
+      TypePrinter.NamedTypes->empty())
     return;
 
   Out << '\n';
@@ -1525,13 +1535,13 @@ void AssemblyWriter::printTypeIdentities() {
     Out << '\n';
   }
 
-  for (unsigned i = 0, e = TypePrinter.NamedTypes.size(); i != e; ++i) {
-    PrintLLVMName(Out, TypePrinter.NamedTypes[i]->getName(), LocalPrefix);
+  for (unsigned i = 0, e = TypePrinter.NamedTypes->size(); i != e; ++i) {
+    PrintLLVMName(Out, (*TypePrinter.NamedTypes)[i]->getName(), LocalPrefix);
     Out << " = type ";
 
     // Make sure we print out at least one level of the type structure, so
     // that we do not get %FILE = type %FILE
-    TypePrinter.printStructBody(TypePrinter.NamedTypes[i], Out);
+    TypePrinter.printStructBody((*TypePrinter.NamedTypes)[i], Out);
     Out << '\n';
   }
 }
