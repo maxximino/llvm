@@ -8,7 +8,7 @@
 #include <bitset>
 #include <array>
 #define MAX_KEYBITS 256
-#define MAX_OUTBITS 256
+#define MAX_SUBBITS 512
 #define MAX_VALBITS 64
 using namespace std;
 using namespace llvm;
@@ -61,10 +61,10 @@ namespace llvm
 				InstructionSource origin;
                 std::vector<std::bitset<MAX_KEYBITS> > keydep;
                 std::bitset<MAX_KEYBITS> keydep_own;
-/*                std::vector<std::bitset<MAX_KEYBITS> > pre;
-                std::bitset<MAX_KEYBITS> pre_own;*/
-                std::vector<std::bitset<MAX_OUTBITS> > post;
-                std::bitset<MAX_OUTBITS> post_own;
+                std::vector<std::bitset<MAX_SUBBITS> > pre;
+                std::bitset<MAX_SUBBITS> pre_own;
+                std::vector<std::bitset<MAX_SUBBITS> > post;
+                std::bitset<MAX_SUBBITS> post_own;
 				Instruction* my_instruction;
 				Instruction* unmasked_value;
 				std::vector<Value*> MaskedValues;
@@ -74,7 +74,7 @@ namespace llvm
                 bool deadBitsCalculated;
                 std::bitset<MAX_VALBITS> deadBits;
                 /* } */
-                InstructionMetadata(Instruction* ptr): keydep(0), keydep_own(0), post(0), post_own(0), MaskedValues(0), pre_stats() {
+                InstructionMetadata(Instruction* ptr): pre(0),pre_own(0),keydep(0), keydep_own(0), post(0), post_own(0), MaskedValues(0), pre_stats() {
 					init();
 					my_instruction = ptr;
 					known[ptr] = this;

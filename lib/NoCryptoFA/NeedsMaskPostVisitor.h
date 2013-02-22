@@ -8,7 +8,7 @@ class NeedsMaskPostVisitor : public InstVisitor<NeedsMaskPostVisitor>
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
 			bool hasEmpty = false;
 			bool retval = false;
-		for(bitset<MAX_OUTBITS> b : md->post) {
+        for(bitset<MAX_SUBBITS> b : md->post) {
 				if(b.count() < SecurityMargin.getValue()) {
 					hasEmpty = true;
 					break;

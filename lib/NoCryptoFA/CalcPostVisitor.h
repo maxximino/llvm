@@ -58,8 +58,8 @@ class CalcBackwardVisitor : public InstVisitor<CalcBackwardVisitor<MAXBITS,DATA,
                 ConstantInt* ci = cast<ConstantInt>(v_idx);
                 idx = ci->getLimitedValue();
             }
-            vector<bitset<MAX_OUTBITS> > toadd = (usemd->*DATA);
-			ShiftKeyBitset<MAX_OUTBITS>((direction ? 0 : 1), idx, toadd); //Invert direction.
+            vector<bitset<MAX_SUBBITS> > toadd = (usemd->*DATA);
+            ShiftKeyBitset<MAX_SUBBITS>((direction ? 0 : 1), idx, toadd); //Invert direction.
             for(unsigned int i = 0; i < (md->*DATA).size(); i++) {
                 (md->*DATA)[i] |= toadd[i];
 			}
@@ -91,8 +91,8 @@ class CalcBackwardVisitor : public InstVisitor<CalcBackwardVisitor<MAXBITS,DATA,
 			}
 		}
 		void calcAsBiggestSum(Instruction& inst) {
-			bitset<MAX_OUTBITS> ob(0);
-        for(bitset<MAX_OUTBITS> b: (usemd->*DATA)) {
+            bitset<MAX_SUBBITS> ob(0);
+        for(bitset<MAX_SUBBITS> b: (usemd->*DATA)) {
 				ob |= b;
 			}
             for(unsigned int i = 0; i < (md->*DATA).size(); i++) {

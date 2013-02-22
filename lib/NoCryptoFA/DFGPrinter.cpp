@@ -281,8 +281,8 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/></head><body><pre>";
 				os << *i << "\n";
 				llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
-                calcStatistics<MAX_KEYBITS>(md->pre_stats, md->keydep);
-				calcStatistics<MAX_OUTBITS>(md->post_stats, md->post);
+                calcStatistics<MAX_SUBBITS>(md->pre_stats, md->pre);
+                calcStatistics<MAX_SUBBITS>(md->post_stats, md->post);
 				instr_dump << md->pre_stats.max << ";";
 				instr_dump << md->pre_stats.min << ";";
 				instr_dump << md->pre_stats.min_nonzero << ";";
@@ -313,18 +313,18 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 				instr_dump << md->post_FirstToMeetKey << ";";
 				instr_dump << md->hasBeenMasked << ";";
 				instr_dump << md->origin << ";";
-                instr_dump << md->keydep.size() << ";";
-                instr_dump << print_syntethic<MAX_KEYBITS>(md->keydep) << ";";
-                instr_dump << printbs_syntethic<MAX_KEYBITS>(md->keydep_own) << ";";
-				instr_dump << print_syntethic<MAX_OUTBITS>(md->post) << ";";
-				instr_dump << printbs_syntethic<MAX_OUTBITS>(md->post_own) << ";";
+                instr_dump << md->pre.size() << ";";
+                instr_dump << print_syntethic<MAX_SUBBITS>(md->pre) << ";";
+                instr_dump << printbs_syntethic<MAX_SUBBITS>(md->pre_own) << ";";
+                instr_dump << print_syntethic<MAX_SUBBITS>(md->post) << ";";
+                instr_dump << printbs_syntethic<MAX_SUBBITS>(md->post_own) << ";";
 				// fine parte per output dettagliato
 				instr_dump << "\"" << *i << "\"\n";
 				if(md->isAKeyOperation) {
 					if(md->isAKeyStart) {
 						os << "KeyStart" << "\n";
 					}
-                    os << "<Own:" << printbs_small<MAX_KEYBITS>(md->keydep_own) << ",Pre:" << printvec_small<MAX_KEYBITS>(md->keydep) << ",Post_Own:" << printbs_small<MAX_OUTBITS>(md->post_own) << ",Post:" << printvec_small<MAX_OUTBITS>(md->post) << ">" << "\n";
+                    os << "<Own:" << printbs_small<MAX_SUBBITS>(md->pre_own) << ",Pre:" << printvec_small<MAX_SUBBITS>(md->pre) << ",Post_Own:" << printbs_small<MAX_SUBBITS>(md->post_own) << ",Post:" << printvec_small<MAX_SUBBITS>(md->post) << ">" << "\n";
 				}
 				boxcont << os.str() << "\n";
 				if(md->post_FirstToMeetKey) {
@@ -368,13 +368,13 @@ bool DFGPrinter::runOnModule(llvm::Module& M)
 						break;
 				}
 
-                boxcont << "Value size:" << md->keydep.size() << "\n";
+                boxcont << "Value size:" << md->pre.size() << "\n";
 				if(!i->getDebugLoc().isUnknown()) {
 					boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
 				}
 				if(md->isAKeyOperation) {
-                    boxcont << "Own:" << printbs_large<MAX_KEYBITS>(md->keydep_own) << "\nPre:" << printvec_large<MAX_KEYBITS>(md->keydep);
-					boxcont << "\nPost_Own:" << printbs_large<MAX_OUTBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_OUTBITS>(md->post);
+                    boxcont << "Own:" << printbs_large<MAX_SUBBITS>(md->pre_own) << "\nPre:" << printvec_large<MAX_SUBBITS>(md->pre);
+                    boxcont << "\nPost_Own:" << printbs_large<MAX_SUBBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_SUBBITS>(md->post);
 				}
 				cur = new MyNodeType(os.str());
 				fname << "Node" << cur << ".html";

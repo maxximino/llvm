@@ -7,6 +7,7 @@
 #include <llvm/Instructions.h>
 #include <llvm/Analysis/Dominators.h>
 #include <set>
+#include <list>
 #include <iostream>
 #include <unistd.h>
 #include <sys/time.h>
@@ -33,16 +34,17 @@ CalcDFG* llvm::createCalcDFGPass()
 {
     return new CalcDFG();
 }
-
+void CalcDFG::assignKeyOwn(set<Instruction*> instructions,bitset<MAX_SUBBITS> NoCryptoFA::InstructionMetadata::*OWN){
+    int latestPos=0;
+    for(Instruction* p: instructions){
+        getMD(p)->*OWN=getOutBitset(p,latestPos);
+    }
+}
 bool CalcDFG::runOnFunction(llvm::Function& Fun)
 {
 	keyLatestPos = 0;
-	outLatestPos = 0;
-	cipherOutPoints.clear();
-	candidatekeyPostPoints.clear();
+    candidateVulnerablePoints.clear();
 	instr_bs.clear();
-	instr_out_bs.clear();
-	keyPostPoints.clear();
 	set<Instruction*> keyStarts;
 	if(alreadyTransformed.find(&Fun) != alreadyTransformed.end()) {return false;}
 	llvm::TaggedData& td = getAnalysis<TaggedData>();
@@ -66,23 +68,56 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 				int size = getOperandSize(I);
                 NoCryptoFA::known[I]->keydep.resize(size);
 				NoCryptoFA::known[I]->post.resize(size);
+                NoCryptoFA::known[I]->pre.resize(size);
 				for(int i = 0; i < size; ++i) {
                     NoCryptoFA::known[I]->keydep[i] = bitset<MAX_KEYBITS>(0);
-					NoCryptoFA::known[I]->post[i] = bitset<MAX_OUTBITS>(0);
+                    NoCryptoFA::known[I]->pre[i] = bitset<MAX_SUBBITS>(0);
+                    NoCryptoFA::known[I]->post[i] = bitset<MAX_SUBBITS>(0);
 				}
                 calcDeadBits(I);
 			}
 		}
 	}
-	runBatched(keyStarts, [this](Instruction * p)->bool {calcPre(p); return false;});
-	gettimeofday(&clk_end, NULL);
-	std::cerr << "Tempo visita pre: delta-sec" <<  clk_end.tv_sec - clk_start.tv_sec;
-	std::cerr << " delta-usec" <<  clk_end.tv_usec - clk_start.tv_usec << endl;
-	toBeVisited = cipherOutPoints;
-	/*    cerr << "cipherOutPoints n " << cipherOutPoints.size() << endl;
+    runBatched(keyStarts, [this](Instruction * p)->bool {calcKeydep(p); return false;});
+    /*gettimeofday(&clk_end, NULL);
+    std::cerr << "Tempo propagazione dipendenze da userkey: delta-sec" <<  clk_end.tv_sec - clk_start.tv_sec;
+    std::cerr << " delta-usec" <<  clk_end.tv_usec - clk_start.tv_usec << endl;*/
+    set<Instruction*> vulnerableTop;
+    set<Instruction*> vulnerableBottom;
+    list<pair<int,Instruction*> > sortedList;
+    sortedList.insert(sortedList.begin(),candidateVulnerablePoints.begin(),candidateVulnerablePoints.end());
+    for(auto p: sortedList){
+        errs() << "SortedList: " << p.first << " - " << *(p.second) << "\n";
+    }
+    lookForMostVulnerableInstructionRepresentingTheEntireUserKey(sortedList,&vulnerableTop);
+    for(auto p: vulnerableTop){
+        errs() << "vulnerableTop: riga "<< p->getDebugLoc().getLine() << *p << "\n";
+    }
+    sortedList.reverse();
+    lookForMostVulnerableInstructionRepresentingTheEntireUserKey(sortedList,&vulnerableBottom);
+    for(auto p: vulnerableBottom){
+        errs() << "vulnerableBottom: riga "<< p->getDebugLoc().getLine() << *p << "\n";
+    }
+    cerr << "There were " << candidateVulnerablePoints.size() << " possibly vulnerable subkeys. T " << vulnerableTop.size() << " B " << vulnerableBottom.size() << " \n";
+    assignKeyOwn(vulnerableTop,&NoCryptoFA::InstructionMetadata::pre_own);
+    assignKeyOwn(vulnerableBottom,&NoCryptoFA::InstructionMetadata::post_own);
+    //TODO: Assegnare post_own
+    runBatched(vulnerableTop, [this](Instruction * p)->bool {calcPre(p);return false;});
+    set<Instruction*> firstVulnerableUses = set<Instruction*>();
+    for(Instruction * p : vulnerableBottom) {
+            for(auto u = p->use_begin(); u != p->use_end(); ++u) {
+                Instruction* Inst = dyn_cast<Instruction>(*u);
+                firstVulnerableUses.insert(Inst);
+            }
+        }
+
+    runBatched(firstVulnerableUses, [this](Instruction * p)->bool {calcPost(p);return false;});
+    /*
+    toBeVisited = cipherOutPoints;
+    / *    cerr << "cipherOutPoints n " << cipherOutPoints.size() << endl;
 	    cerr << "candidateKeyPOst n " << candidatekeyPostPoints.size() << endl;
 	    cerr << "keyLatestPos " << keyLatestPos << endl;
-	    cerr << "outLatestPos " << outLatestPos << endl;*/
+        cerr << "outLatestPos " << outLatestPos << endl;  * /
 	runBatched(cipherOutPoints, [this](Instruction * p)->bool {return lookForBackwardsKeyPoints(p);});
 	set<Instruction*> keyPostPointsUses;
 for(Instruction * p : keyPostPoints) {
@@ -94,9 +129,127 @@ for(Instruction * p : keyPostPoints) {
 	runBatched(keyPostPointsUses, [this](Instruction * p)->bool {calcPost(p); return false;});
 	gettimeofday(&clk_end, NULL);
 	std::cerr << "Tempo visita pre+post: delta-sec" <<  clk_end.tv_sec - clk_start.tv_sec;
-	std::cerr << " delta-usec" <<  clk_end.tv_usec - clk_start.tv_usec << endl;
+    std::cerr << " delta-usec" <<  clk_end.tv_usec - clk_start.tv_usec << endl;*/
 	return false;
 }
+bitset<MAX_KEYBITS> massiveOR(std::vector<bitset<MAX_KEYBITS> >& input){
+    bitset<MAX_KEYBITS> max(0);
+    for(auto &v : input ){
+                max |= v;
+    }
+    return max;
+}
+//TODO:spostare
+struct doubt{
+public:
+    bitset<MAX_KEYBITS> taken;
+    bitset<MAX_KEYBITS> leftover;
+    int valuesize;
+    doubt(bitset<MAX_KEYBITS> _taken,bitset<MAX_KEYBITS> _left,int n){
+        taken=_taken; leftover=_left; valuesize=n;
+    }
+};
+
+bitset<MAX_KEYBITS> getFirstNSetBit(bitset<MAX_KEYBITS> input,unsigned int howmany){
+      bitset<MAX_KEYBITS> newbits_mask = 0x1;
+      while(input.count() > howmany){
+          input &= ~newbits_mask;
+          newbits_mask <<= 1; //If it's not enough, try clearing the next one.
+      } // End of while(newbits.countOnes() >howmany)
+    return input;
+}
+
+bitset<MAX_KEYBITS> checkForOptimizations(bitset<MAX_KEYBITS>& covered,bitset<MAX_KEYBITS>& covering,bitset<MAX_KEYBITS>& userkey_dep_full,int num,list<doubt>& doubts){
+        bitset<MAX_KEYBITS> mandatory = 0;
+        bitset<MAX_KEYBITS> new_previously_covered = 0;
+        bitset<MAX_KEYBITS> new_mandatory= 0;
+        int howmany;
+        doubts.remove_if([covered,covering](doubt& val){
+            return ((val.leftover & covered & covering).count() == 0); //Housekeeping
+        });
+
+
+        for(auto u = doubts.begin(); u != doubts.end(); ++u){
+              if((u->leftover &~ userkey_dep_full).count()>0){   //Bits to be covered with high priority, which I can't take care of.
+                 if((u->taken & userkey_dep_full).count() > 0) { //Bits already covered, which I can re-cover.
+                  //sposto un bit da quell'insieme all'altro
+                  howmany = num-mandatory.count();
+                  new_mandatory =getFirstNSetBit(u->taken & userkey_dep_full,howmany);
+                  mandatory |= new_mandatory;
+                  u->taken &= ~new_mandatory;
+                  covered &= ~new_mandatory;
+                  howmany = new_mandatory.count();
+                  new_previously_covered = getFirstNSetBit(u->leftover & ~userkey_dep_full,howmany);
+                  u->leftover &= ~new_previously_covered;
+                  covered |= new_previously_covered;
+                  if(mandatory.count() == num){break;}
+                }
+            }
+
+        }
+      return mandatory;
+    }
+bitset<MAX_KEYBITS> limitTakenBits(int max,bitset<MAX_KEYBITS>& newbits,bitset<MAX_KEYBITS>& mandatory, list<doubt>& doubts ){
+      bitset<MAX_KEYBITS> tobereturned=newbits;
+      bitset<MAX_KEYBITS> newbits_mask = 0x1;
+      assert(mandatory.count() <= max);
+      if(newbits.count() <= max) { return newbits;}
+      while(tobereturned.count() > max){
+        tobereturned &= ~newbits_mask;
+        tobereturned |= mandatory;
+        newbits_mask <<= 1; //If it's not enough, try clearing the next one.
+      } // End of while(newbits.countOnes() > max)
+      doubts.push_front(doubt(tobereturned,newbits &~ tobereturned, max));
+      return tobereturned;
+}
+void CalcDFG::lookForMostVulnerableInstructionRepresentingTheEntireUserKey(list<pair<int,Instruction*> >& sorted,set<Instruction*>* most_vulnerable_instructions)
+{
+  bitset<MAX_KEYBITS> covered = 0; //Covered from the previous generation
+  bitset<MAX_KEYBITS> covering = 0; //Covered in this generation
+  bitset<MAX_KEYBITS> newbits,userkey_dep_full,mandatory = 0;
+  list<doubt> doubts = list<doubt>();
+  NoCryptoFA::InstructionMetadata* md;
+  int old_gen=-1;
+  for(auto it = sorted.begin(); it!= sorted.end();++it ){
+        if( it->first != old_gen){ // We are crossing a "generation". Do some "housekeeping" work.
+        cerr << "From gen " << old_gen << " to gen " << it->first << " - already covered " << covered.count() << " bits with " << covering.count() << " new\n";
+        covered |= covering;
+        covering=0;
+        old_gen=it->first;
+        if(covered.count() == keyLatestPos) {break;} //If now we have covered all of the bits of the userkey, we are done.
+        }
+     md = getMD(it->second);
+     userkey_dep_full = massiveOR(md->keydep);
+     cerr << "Evaluating instruction that depends from " << userkey_dep_full.count() << " bits\n";
+     newbits = userkey_dep_full & ~covered;
+     //mandatory=checkForOptimizations(covered,covering,userkey_dep_full,md->keydep.size(),doubts);
+     newbits |= mandatory;
+     cerr << "newbits A " << newbits.count() << " bits\n";
+     if(newbits.count() > 0){ //This SSA register covers a userkey bit not covered in the previous generation.
+      //Already covered bits in this generation should not be "assigned" as leakable from this instruction,
+      //if this instruction can leak new bits. Otherwise it's like thinking that an attacker can look for those "new" bits only in a later generation. FALSE!
+      /* Example:
+       * R1(16 bit) depends on so can leak 64 bits of key.
+       * R2(16 bit) depends on so can leak the same 64 bits of the key.
+       * R1 and R2 have the same distance from the plaintext.
+       * This algorithm "marks as leakable" the first 16 leftmost bits to R1.
+       * In order to not assign the same bits to R2, we need to remove it from the mask.
+       * We cannot do it earlier, because those bits are USEFUL in determining if this instruction is vulnerable in this generation,
+       * but are NOT USEFUL in marking those bits as "leakable".
+       */
+      newbits=newbits &~ covering;
+      cerr << "newbits B " << newbits.count() << " bits\n";
+      newbits |= mandatory;
+      //A byte cannot give informations on more than 8 new key bits! So let's filter them out. Another instruction will "pick" them.
+      newbits=limitTakenBits(md->keydep.size(),newbits,mandatory,doubts);
+      cerr << "newbits C " << newbits.count() << " bits\n";
+      covering |= newbits;
+      most_vulnerable_instructions->insert(it->second);
+    }
+  } // End of foreach(Instruction v in sorted)
+  doubts.clear();
+}
+
 void CalcDFG::runBatched(set<Instruction*> initialSet, std::function<bool (Instruction*)> func)
 {
 	bool stopIterations = false;
@@ -115,26 +268,23 @@ llvm::NoCryptoFA::InstructionMetadata* CalcDFG::getMD(llvm::Instruction* ptr)
 }
 
 #include <iostream>
-bitset<MAX_OUTBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr)
+//Needs generalization
+bitset<MAX_SUBBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr,int& latestPos)
 {
-	if(instr_out_bs.find(ptr) != instr_out_bs.end()) {
-		return instr_out_bs[ptr];
-	}
 	Value* op = ptr;
 	int outQty = getOperandSize(op->getType());
-	if(outLatestPos + outQty > MAX_OUTBITS) {
-		cerr << "Something wrong with CalcDFG.";
-		return bitset<MAX_OUTBITS>(0);
+    if(latestPos + outQty > MAX_SUBBITS) {
+        errs() << "Something wrong with CalcDFG: " << latestPos << " + " << outQty << " > " << MAX_SUBBITS << " for instruction " << *ptr <<"\n";
+        return bitset<MAX_SUBBITS>(0);
 	}
-	//  cerr << "latestPos " << outLatestPos << " outQty:" << outQty << endl;
-	bitset<MAX_OUTBITS> mybs;
+    //  cerr << "latestPos " << latestPos << " outQty:" << outQty << endl;
+    bitset<MAX_SUBBITS> mybs;
 	mybs.reset();
-	for(int i = outLatestPos; i < (outLatestPos + outQty); i++) {
+    for(int i = latestPos; i < (latestPos + outQty); i++) {
 		mybs[i] = 1;
 	}
-	outLatestPos += outQty;
-	cerr << " new outLatestPos " << outLatestPos << " riga " << ptr->getDebugLoc().getLine() << endl;
-	instr_out_bs[ptr] = mybs;
+    latestPos += outQty;
+    cerr << " new latestPos " << latestPos << " riga " << ptr->getDebugLoc().getLine() << endl;
 	return mybs;
 }
 int CalcDFG::getOperandSize(llvm::Instruction* ptr)
@@ -227,9 +377,9 @@ void CalcDFG::calcPost(Instruction* ptr)
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
 	if(!md->isAKeyOperation) {return;}
 	bool changed = false;
-	vector<bitset<MAX_KEYBITS> > oldPost = md->post;
+    vector<bitset<MAX_SUBBITS> > oldPost = md->post;
 	bool oldProt = md->hasToBeProtected_post;
-	ClearMatrix<MAX_OUTBITS>(md->post);
+    ClearMatrix<MAX_SUBBITS>(md->post);
 	for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
 		if(Instruction* _it = dyn_cast<Instruction>(*it)) {
 			NoCryptoFA::InstructionMetadata* opmd = NoCryptoFA::known[_it];
@@ -241,7 +391,7 @@ void CalcDFG::calcPost(Instruction* ptr)
 			}
 		}
 	}
-    CalcBackwardVisitor<MAX_OUTBITS,&NoCryptoFA::InstructionMetadata::post,&NoCryptoFA::InstructionMetadata::post_own> cbv;
+    CalcBackwardVisitor<MAX_SUBBITS,&NoCryptoFA::InstructionMetadata::post,&NoCryptoFA::InstructionMetadata::post_own> cbv;
 	for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
 		if(Instruction* _it = dyn_cast<Instruction>(*it)) {
 			NoCryptoFA::InstructionMetadata* usemd = NoCryptoFA::known[_it];
@@ -251,7 +401,7 @@ void CalcDFG::calcPost(Instruction* ptr)
 		}
 	}
 	checkNeedsMasking_post(ptr, md);
-	if(!areVectorOfBitsetEqual<MAX_KEYBITS>(oldPost, md->post)) { changed = true; }
+    if(!areVectorOfBitsetEqual<MAX_SUBBITS>(oldPost, md->post)) { changed = true; }
 	if(oldProt != md->hasToBeProtected_post) { changed = true; }
 	if(changed) {
 		for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
@@ -275,6 +425,8 @@ void checkNeedsMasking_pre(Instruction* ptr, NoCryptoFA::InstructionMetadata* md
 	NeedsMaskPreVisitor nmpv;
 	nmpv.visit(ptr);
 }
+/*
+ *This is going to be subverted
 bool CalcDFG::lookForBackwardsKeyPoints(llvm::Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
@@ -293,39 +445,61 @@ bool CalcDFG::lookForBackwardsKeyPoints(llvm::Instruction* ptr)
 	}
     //if(outLatestPos >= keyLatestPos)    errs() << "stop: outlatestpos " << outLatestPos << " klp " << keyLatestPos << "\n";
 	return outLatestPos >= keyLatestPos;
-}
+}*/
 void CalcDFG::calcPre(llvm::Instruction* ptr)
+{
+    NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
+    bool changed = false;
+    vector<bitset<MAX_SUBBITS> > oldPre = md->pre;
+    bool oldProtected = md->hasToBeProtected_pre;
+    ClearMatrix<MAX_SUBBITS>(md->pre);
+    CalcForwardVisitor<MAX_SUBBITS,&NoCryptoFA::InstructionMetadata::pre,&NoCryptoFA::InstructionMetadata::pre_own> cfv;
+    cfv.visit(ptr);
+    checkNeedsMasking_pre(ptr, md);
+    if(!areVectorOfBitsetEqual<MAX_SUBBITS>(oldPre, md->pre)) { changed = true; }
+    if(md->hasToBeProtected_pre != oldProtected){changed=true;}
+    if(changed || md->pre_own.any()) {
+        if(!ptr->use_empty()) {
+            for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
+                if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                    toBeVisited.insert(_it);
+                }
+            }
+        }
+    }
+}
+
+void CalcDFG::calcKeydep(llvm::Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
 	bool changed = false;
-    vector<bitset<MAX_KEYBITS> > oldPre = md->keydep;
-	bool oldProt = md->hasToBeProtected_pre;
+    vector<bitset<MAX_KEYBITS> > oldKeydep = md->keydep;
     ClearMatrix<MAX_KEYBITS>(md->keydep);
     CalcForwardVisitor<MAX_KEYBITS,&NoCryptoFA::InstructionMetadata::keydep,&NoCryptoFA::InstructionMetadata::keydep_own> cfv;
     cfv.visit(ptr);
-	checkNeedsMasking_pre(ptr, md);
-    if(!areVectorOfBitsetEqual<MAX_KEYBITS>(oldPre, md->keydep)) { changed = true; }
-	if(oldProt != md->hasToBeProtected_pre) { changed = true; }
-	if(md->hasMetPlaintext && md->isAKeyOperation && ptr->use_empty()) {
+    if(!areVectorOfBitsetEqual<MAX_KEYBITS>(oldKeydep, md->keydep)) { changed = true; }
+/*  	if(md->hasMetPlaintext && md->isAKeyOperation && ptr->use_empty()) {
 		cipherOutPoints.insert(ptr);
-	}
+    }*/ //Don't need this anymore
     if(changed || md->keydep_own.any()) {
 		if(!ptr->use_empty()) {
-			bool everyUseIsInCipher = true;
-			bool hasAtLeastOneUseInCipher = false;
 			for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
 				if(Instruction* _it = dyn_cast<Instruction>(*it)) {
 					toBeVisited.insert(_it);
-					if(!(NoCryptoFA::known[_it]->hasMetPlaintext && NoCryptoFA::known[_it]->isAKeyOperation)) {
-						everyUseIsInCipher = false;
-					} else {
-						hasAtLeastOneUseInCipher = true;
+                    if((NoCryptoFA::known[_it]->hasMetPlaintext && NoCryptoFA::known[_it]->isAKeyOperation)) {
+                        if(!md->hasMetPlaintext){
+                            //Insert the edge of the graph into the multimap.
+                            //Each element can appear multiple times with different heights
+                            //but only one time for each height
+                            const int h = NoCryptoFA::known[_it]->PlaintextHeight;
+                            auto equalheight = candidateVulnerablePoints.equal_range(h);
+                            if(std::find(equalheight.first,equalheight.second,std::pair<const int,Instruction*>(h,ptr)) == equalheight.second){
+                                    //It's new, let's insert it.
+                                candidateVulnerablePoints.insert(std::make_pair(h,ptr));
+                            }
+                        }
 					}
 				}
-			}
-			if(hasAtLeastOneUseInCipher && (!(ptr->use_empty())) && (!md->hasMetPlaintext)) {
-                //  errs() << "Candidato: " << ptr->getDebugLoc().getLine() << *ptr << "\n";
-				candidatekeyPostPoints.insert(ptr);
 			}
 		}
 	}
