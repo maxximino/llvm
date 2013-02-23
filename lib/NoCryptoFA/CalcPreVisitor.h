@@ -42,6 +42,12 @@ class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, 
 	public:
 		void visitInstruction(Instruction& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
+            if((md->*OWN).any() ){
+                for(int i = 0; i< (md->*DATA).size(); i++)
+                {
+                    (md->*DATA)[i]|=md->*OWN;
+                }
+            }
 			for(User::const_op_iterator it = inst.op_begin(); it != inst.op_end(); ++it) {
 				if(Instruction* _it = dyn_cast<Instruction>(*it)) {
                     int size = std::min((NoCryptoFA::known[_it]->*DATA).size(), (md->*DATA).size());
