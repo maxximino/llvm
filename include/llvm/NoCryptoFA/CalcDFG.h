@@ -72,25 +72,24 @@ namespace llvm
 			void setAsTransformed(Function* ptr) {
 				alreadyTransformed.insert(ptr);
 			}
-			static int getOperandSize(llvm::Instruction* ptr);
-			static int getOperandSize(llvm::Type* t);
+            static unsigned int getOperandSize(llvm::Instruction* ptr);
+            static unsigned int getOperandSize(llvm::Type* t);
 		private:
 			// This is the information computed by the analysis.
 			std::map<llvm::Instruction*, std::bitset<MAX_KEYBITS> > instr_bs;
 			std::map<NoCryptoFA::KeyStartInfo, std::bitset<MAX_KEYBITS> > GEPs;
-			int keyLatestPos;
+            unsigned int keyLatestPos;
 			std::set<Function*> alreadyTransformed;
 			std::set<Instruction*> toBeVisited;
             std::multimap<int,Instruction*> candidateVulnerablePoints;
 			void runBatched(set<Instruction*> initialSet, std::function<bool(Instruction*)> func );
             void calcKeydep(llvm::Instruction* ptr);
             //bool lookForBackwardsKeyPoints(llvm::Instruction* ptr);
-            void lookForMostVulnerableInstructionRepresentingTheEntireUserKey(list<pair<int,Instruction*> >& sorted,set<Instruction*>* most_vulnerable_instructions);
+            void lookForMostVulnerableInstructionRepresentingTheEntireUserKey(list<pair<int,Instruction*> >& sorted,set<Instruction*>* most_vulnerable_instructions,bool NoCryptoFA::InstructionMetadata::* marker);
             void calcPost(llvm::Instruction* ptr);
             void calcPre(llvm::Instruction* ptr);
-            bitset<MAX_SUBBITS> getOutBitset(llvm::Instruction* ptr,int& latestPos);
+            bitset<MAX_SUBBITS> getOutBitset(llvm::Instruction* ptr,unsigned int& latestPos);
 			bitset<MAX_KEYBITS> getOwnBitset(llvm::Instruction* ptr);
-			int  getKeyLen(llvm::Instruction* ptr);
             void assignKeyOwn(set<Instruction*> instructions,bitset<MAX_SUBBITS> NoCryptoFA::InstructionMetadata::*OWN);
 
 

@@ -49,8 +49,9 @@ namespace llvm
 				};
 				bool isAKeyOperation;
 				bool isAKeyStart;
-				bool isPostKeyStart;
-				bool isPostKeyOperation;
+                bool isVulnerableTopSubKey;
+                bool isVulnerableBottomSubKey;
+                bool isSubKey;
 				bool isSbox;
 				bool hasToBeProtected_pre;
 				bool hasToBeProtected_post;
@@ -75,7 +76,7 @@ namespace llvm
                 bool deadBitsCalculated;
                 std::bitset<MAX_VALBITS> deadBits;
                 /* } */
-                InstructionMetadata(Instruction* ptr): pre(0),pre_own(0),keydep(0), keydep_own(0), post(0), post_own(0), MaskedValues(0), pre_stats() {
+                InstructionMetadata(Instruction* ptr): keydep(0), keydep_own(0),pre(0),pre_own(0), post(0), post_own(0), MaskedValues(0), pre_stats() {
 					init();
 					my_instruction = ptr;
 					known[ptr] = this;
@@ -94,9 +95,11 @@ namespace llvm
 				}
                 void reset(){
                     unmasked_value = NULL;
-                    isPostKeyOperation=false;
-                    isPostKeyStart=false;
+                    isVulnerableBottomSubKey=false;
+                    isVulnerableTopSubKey=false;
+                    isSubKey=false;
                     post_FirstToMeetKey = false;
+                    pre_own.reset();
                     post_own.reset();
                     keydep_own.reset();
                     hasToBeProtected_pre = false;
@@ -107,7 +110,7 @@ namespace llvm
                 std::string& getAsString(){
                     if(representation.length() > 0) return representation;
                     llvm::raw_string_ostream os(representation);
-                    os << my_instruction;
+                    os << *my_instruction;
                     return representation;
                 }
 			private:

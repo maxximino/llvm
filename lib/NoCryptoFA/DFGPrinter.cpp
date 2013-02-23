@@ -73,9 +73,11 @@ namespace llvm
 			if(Node->md) {
 				switch(Node->md->origin) { //Sta diventando piu spaghettoso di quanto sia giusto. Refactor?
 					case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
-						if(Node->md->isPostKeyStart) {
+                        if(Node->md->isVulnerableTopSubKey || Node->md->isVulnerableBottomSubKey) {
 							return "style=filled,color=\"#00ff00\"";
-						}
+                        }else if(Node->md->isSubKey) {
+                            return "style=filled,color=\"#ffff80\"";
+                        }
 						if(Node->hasToBeProtected) {
 							return "style=filled,color=\"#f458f4\"";
 						} else if(Node->md->isAKeyOperation) {
@@ -271,7 +273,7 @@ void DFGPrinter::doCSV(Module& M){
             instr_dump << "Post_Max;Post_Min;Post_MinNZ;Post_Avg;Post_AvgNZ;";
             instr_dump << "Min_MinNZ;Plaintext;PTHeight;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
             // parte per output dettagliato
-            instr_dump << "IsAKeyOp;IsAKeyStart;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;ValueSize;pre;pre_own;post;post_own;";
+            instr_dump << "IsAKeyOp;IsAKeyStart;PreKeyStart;SubKey;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;ValueSize;pre;pre_own;post;post_own;";
             // fine parte per output dettagliato
             instr_dump << "\"Full instruction\"\n";
             if(!td.functionMarked(&(*F))) { continue; }
@@ -305,7 +307,9 @@ void DFGPrinter::doCSV(Module& M){
                 // parte per output dettagliato
                 instr_dump << md->isAKeyOperation << ";";
                 instr_dump << md->isAKeyStart << ";";
-                instr_dump << md->isPostKeyStart << ";";
+                instr_dump << md->isVulnerableTopSubKey << ";";
+                instr_dump << md->isSubKey << ";";
+                instr_dump << md->isVulnerableBottomSubKey << ";";
                 instr_dump << md->isSbox << ";";
                 instr_dump << md->post_FirstToMeetKey << ";";
                 instr_dump << md->hasBeenMasked << ";";
@@ -351,6 +355,10 @@ void DFGPrinter::doHTML(Module& M){
                     os << "<Own:" << printbs_small<MAX_SUBBITS>(md->pre_own) << ",Pre:" << printvec_small<MAX_SUBBITS>(md->pre) << ",Post_Own:" << printbs_small<MAX_SUBBITS>(md->post_own) << ",Post:" << printvec_small<MAX_SUBBITS>(md->post) << ">" << "\n";
                 }
                 boxcont << os.str() << "\n";
+                if(md->isSubKey)  boxcont << "SubKey\n";
+                if(md->isVulnerableTopSubKey)  boxcont << "VulnTop\n";
+                if(md->isVulnerableBottomSubKey)  boxcont << "VulnBottom\n";
+
                 if(md->post_FirstToMeetKey) {
                     boxcont << "Primo ad incontrare la chiave backwards\n";
                 }

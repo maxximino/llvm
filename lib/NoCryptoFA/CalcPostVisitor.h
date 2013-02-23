@@ -107,7 +107,7 @@ class CalcBackwardVisitor : public InstVisitor<CalcBackwardVisitor<MAXBITS,DATA,
         void visitGetElementPtrInst(GetElementPtrInst& inst) {
             calcAsBiggestSum(inst);
             NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
-            for(int i = 0; i < (md->*DATA).size();i++ )
+            for(unsigned int i = 0; i < (md->*DATA).size();i++ )
             {
                 if(md->deadBits[i]) (md->*DATA)[i].reset();
             }
