@@ -70,7 +70,8 @@ namespace llvm
 				Instruction* my_instruction;
 				Instruction* unmasked_value;
 				std::vector<Value*> MaskedValues;
-				StatisticInfo pre_stats;
+                StatisticInfo keydep_stats;
+                StatisticInfo pre_stats;
 				StatisticInfo post_stats;
                 /*Only for SBOXes {*/
                 bool deadBitsCalculated;

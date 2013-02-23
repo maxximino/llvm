@@ -273,13 +273,16 @@ void DFGPrinter::doCSV(Module& M){
             instr_dump << "Post_Max;Post_Min;Post_MinNZ;Post_Avg;Post_AvgNZ;";
             instr_dump << "Min_MinNZ;Plaintext;PTHeight;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
             // parte per output dettagliato
-            instr_dump << "IsAKeyOp;IsAKeyStart;PreKeyStart;SubKey;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;ValueSize;pre;pre_own;post;post_own;";
+            instr_dump << "IsAKeyOp;IsAKeyStart;PreKeyStart;SubKey;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;ValueSize;keydep_own.count;";
+            instr_dump << "KD_Max;KD_Min;KD_MinNZ;KD_Avg;KD_AvgNZ;";
+            instr_dump << "pre;pre_own;post;post_own;";
             // fine parte per output dettagliato
             instr_dump << "\"Full instruction\"\n";
             if(!td.functionMarked(&(*F))) { continue; }
             for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
                 if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
                 llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
+                calcStatistics<MAX_KEYBITS>(md->keydep_stats, md->keydep);
                 calcStatistics<MAX_SUBBITS>(md->pre_stats, md->pre);
                 calcStatistics<MAX_SUBBITS>(md->post_stats, md->post);
                 instr_dump << md->pre_stats.max << ";";
@@ -315,6 +318,13 @@ void DFGPrinter::doCSV(Module& M){
                 instr_dump << md->hasBeenMasked << ";";
                 instr_dump << md->origin << ";";
                 instr_dump << md->pre.size() << ";";
+                instr_dump << md->keydep_own.count() << ";";
+                instr_dump << md->keydep_stats.max << ";";
+                instr_dump << md->keydep_stats.min << ";";
+                instr_dump << md->keydep_stats.min_nonzero << ";";
+                instr_dump << md->keydep_stats.avg << ";";
+                instr_dump << md->keydep_stats.avg_nonzero << ";";
+
                 /* Keep the code here, it might get useful in a far future... actually, it's not worth the time and filesize increase.
                 instr_dump << print_syntethic<MAX_SUBBITS>(md->pre) << ";";
                 instr_dump << printbs_syntethic<MAX_SUBBITS>(md->pre_own) << ";";
