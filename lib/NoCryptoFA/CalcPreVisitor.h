@@ -39,24 +39,37 @@ class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, 
 			}
 			for(unsigned int i = 0; i < vec.size(); i++) { vec[i] = tmp[i]; }
 		}
+        void setDiagonal(vector<bitset<MAXBITS> >& data,bitset<MAXBITS> ownkey){
+            int datapos=0;
+            for(int pos=0;pos<MAXBITS;pos++){
+                if(ownkey[pos]){
+                    data[datapos][pos] = 1;
+                    datapos++;
+                    assert((size_t)datapos <= data.size());
+                }
+            }
+        }
 	public:
 		void visitInstruction(Instruction& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
             if((md->*OWN).any() ){
-                for(int i = 0; i< (md->*DATA).size(); i++)
+                /*for(int i = 0; i< (md->*DATA).size(); i++)
                 {
                     (md->*DATA)[i]|=md->*OWN;
-                }
+                }*/
+                setDiagonal(md->*DATA,md->*OWN);
             }
 			for(User::const_op_iterator it = inst.op_begin(); it != inst.op_end(); ++it) {
 				if(Instruction* _it = dyn_cast<Instruction>(*it)) {
                     int size = std::min((NoCryptoFA::known[_it]->*DATA).size(), (md->*DATA).size());
 					for(int i = 0; i < size; ++i) {
                         (md->*DATA)[i] =  (md->*DATA)[i] | (NoCryptoFA::known[_it]->*DATA)[i];
-                        if((NoCryptoFA::known[_it]->*OWN).any()) {
-                            (md->*DATA)[i] = (md->*DATA)[i] | NoCryptoFA::known[_it]->*OWN; //TODO: diagonale, non blocchettino!
-						}
+
 					}
+                    if((NoCryptoFA::known[_it]->*OWN).any()) {
+     //                   (md->*DATA)[i] = (md->*DATA)[i] | NoCryptoFA::known[_it]->*OWN; //TODO: diagonale, non blocchettino!
+                        setDiagonal(md->*DATA,NoCryptoFA::known[_it]->*OWN);
+                    }
 				}
             }
 		}

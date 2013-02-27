@@ -349,6 +349,17 @@ static void ClearMatrix(vector<bitset<BITNUM> >& vec)
 		vec[i].reset();
 	}
 }
+template<int MAXBITS>
+void setDiagonal(vector<bitset<MAXBITS> >& data,bitset<MAXBITS> ownkey){
+    int datapos=0;
+    for(int pos=0;pos<MAXBITS;pos++){
+        if(ownkey[pos]){
+            data[datapos][pos] = 1;
+            datapos++;
+            assert((size_t)datapos <= data.size());
+        }
+    }
+}
 void CalcDFG::calcPost(Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
@@ -362,9 +373,10 @@ void CalcDFG::calcPost(Instruction* ptr)
 			NoCryptoFA::InstructionMetadata* opmd = NoCryptoFA::known[_it];
 			if(opmd->post_own.count() > 0) {
 				md->post_FirstToMeetKey = true;
-				for(unsigned int i = 0; i < md->post.size(); i++) {
+                /*for(unsigned int i = 0; i < md->post.size(); i++) {
 					md->post[i] = md->post[i] | opmd->post_own; // DIAGONALE, non blocchettino!
-				}
+                }*/
+                setDiagonal<MAX_SUBBITS>(md->post,opmd->post_own);
 			}
 		}
 	}
