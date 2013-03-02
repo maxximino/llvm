@@ -59,6 +59,7 @@ namespace llvm
 				bool hasBeenMasked;
 				bool hasMetPlaintext;
                 long PlaintextHeight;
+                long CiphertextHeight;
                 std::string NodeName;
 				InstructionSource origin;
                 std::vector<std::bitset<MAX_KEYBITS> > keydep;
@@ -105,6 +106,7 @@ namespace llvm
                     keydep_own.reset();
                     hasToBeProtected_pre = false;
                     hasToBeProtected_post = false;
+                    CiphertextHeight= 0xffffffff;
                     hasBeenMasked = false;
 
                 }

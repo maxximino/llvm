@@ -43,7 +43,9 @@ void CalcDFG::assignKeyOwn(set<Instruction*> instructions,bitset<MAX_SUBBITS> No
 bool CalcDFG::runOnFunction(llvm::Function& Fun)
 {
 	keyLatestPos = 0;
-    candidateVulnerablePoints.clear();
+    cipherOutPoints.clear();
+    candidateVulnerablePointsPT.clear();
+    candidateVulnerablePointsCT.clear();
 	instr_bs.clear();
 	set<Instruction*> keyStarts;
 	if(alreadyTransformed.find(&Fun) != alreadyTransformed.end()) {return false;}
@@ -76,11 +78,13 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 			}
 		}
 	}
-    runBatched(keyStarts, [this](Instruction * p)->bool {calcKeydep(p); return false;});
+    runBatched(keyStarts, [this](Instruction * p,long batchn)->bool {searchCipherOutPoints(p); return false;});
+    runBatched(cipherOutPoints, [this](Instruction * p,long batchn)->bool {fillCiphertextHeight(p,batchn); return false;});
+    runBatched(keyStarts, [this](Instruction * p,long batchn)->bool {calcKeydep(p); return false;});
     set<Instruction*> vulnerableTop;
     set<Instruction*> vulnerableBottom;
     list<pair<int,Instruction*> > sortedList;
-    sortedList.insert(sortedList.begin(),candidateVulnerablePoints.begin(),candidateVulnerablePoints.end());
+    sortedList.insert(sortedList.begin(),candidateVulnerablePointsPT.begin(),candidateVulnerablePointsPT.end());
     for(auto p: sortedList){
         errs() << "SortedList: " << p.first << " - " << *(p.second) << "\n";
     }
@@ -88,15 +92,16 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
     for(auto p: vulnerableTop){
         errs() << "vulnerableTop: riga "<< p->getDebugLoc().getLine() << *p << "\n";
     }
-    sortedList.reverse();
+    sortedList.clear();
+    sortedList.insert(sortedList.begin(),candidateVulnerablePointsCT.begin(),candidateVulnerablePointsCT.end());
     lookForMostVulnerableInstructionRepresentingTheEntireUserKey(sortedList,&vulnerableBottom,&NoCryptoFA::InstructionMetadata::isVulnerableBottomSubKey);
     for(auto p: vulnerableBottom){
         errs() << "vulnerableBottom: riga "<< p->getDebugLoc().getLine() << *p << "\n";
     }
-    cerr << "There were " << candidateVulnerablePoints.size() << " possibly vulnerable subkeys. T " << vulnerableTop.size() << " B " << vulnerableBottom.size() << " \n";
+    cerr << "There were " << candidateVulnerablePointsPT.size() << " possibly vulnerable subkeys. T " << vulnerableTop.size() << " B " << vulnerableBottom.size() << " \n";
     assignKeyOwn(vulnerableTop,&NoCryptoFA::InstructionMetadata::pre_own);
     assignKeyOwn(vulnerableBottom,&NoCryptoFA::InstructionMetadata::post_own);
-    runBatched(vulnerableTop, [this](Instruction * p)->bool {calcPre(p);return false;});
+    runBatched(vulnerableTop, [this](Instruction * p,long batchn)->bool {calcPre(p);return false;});
     set<Instruction*> firstVulnerableUses = set<Instruction*>();
     for(Instruction * p : vulnerableBottom) {
             for(auto u = p->use_begin(); u != p->use_end(); ++u) {
@@ -105,7 +110,7 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
             }
         }
 
-    runBatched(firstVulnerableUses, [this](Instruction * p)->bool {calcPost(p);return false;});
+    runBatched(firstVulnerableUses, [this](Instruction * p,long batchn)->bool {calcPost(p);return false;});
 	return false;
 }
 bitset<MAX_KEYBITS> massiveOR(std::vector<bitset<MAX_KEYBITS> >& input){
@@ -227,23 +232,35 @@ void CalcDFG::lookForMostVulnerableInstructionRepresentingTheEntireUserKey(list<
   doubts.clear();
 }
 
-void CalcDFG::runBatched(set<Instruction*> initialSet, std::function<bool (Instruction*)> func)
+void CalcDFG::runBatched(set<Instruction*> initialSet, std::function<bool (Instruction*,long batchn)> func)
 {
 	bool stopIterations = false;
 	toBeVisited = initialSet;
+    long counter = 0;
 	while((toBeVisited.size() > 0) && !stopIterations) {
 		std::set<Instruction*> thisVisit = set<Instruction*>(toBeVisited);
 		toBeVisited.clear();
 	for(Instruction * p : thisVisit) {
-			if(func(p)) {stopIterations = true;}
+            if(func(p,counter)) {stopIterations = true;}
 		}
+        counter++;
 	}
 }
 llvm::NoCryptoFA::InstructionMetadata* CalcDFG::getMD(llvm::Instruction* ptr)
 {
 	return NoCryptoFA::known[ptr];
 }
-
+void CalcDFG::fillCiphertextHeight(Instruction *ptr, int batchn){
+    llvm::NoCryptoFA::InstructionMetadata* md = getMD(ptr);
+    if(batchn < md->CiphertextHeight){
+        md->CiphertextHeight = batchn;
+    }
+    for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
+        if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+            toBeVisited.insert(_it);
+        }
+    }
+}
 #include <iostream>
 //Needs generalization
 bitset<MAX_SUBBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr,unsigned int& latestPos)
@@ -436,7 +453,18 @@ void CalcDFG::calcPre(llvm::Instruction* ptr)
         }
     }
 }
+void CalcDFG::searchCipherOutPoints(llvm::Instruction* ptr){
+    NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
+    if(md->hasMetPlaintext && md->isAKeyOperation && ptr->use_empty()) {
+        cipherOutPoints.insert(ptr);
+    }
+            for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
+                if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                    toBeVisited.insert(_it);
+                }
+            }
 
+}
 void CalcDFG::calcKeydep(llvm::Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
@@ -446,9 +474,6 @@ void CalcDFG::calcKeydep(llvm::Instruction* ptr)
     CalcForwardVisitor<MAX_KEYBITS,&NoCryptoFA::InstructionMetadata::keydep,&NoCryptoFA::InstructionMetadata::keydep_own> cfv;
     cfv.visit(ptr);
     if(!areVectorOfBitsetEqual<MAX_KEYBITS>(oldKeydep, md->keydep)) { changed = true; }
-/*  	if(md->hasMetPlaintext && md->isAKeyOperation && ptr->use_empty()) {
-		cipherOutPoints.insert(ptr);
-    }*/ //Don't need this anymore
     if(changed || md->keydep_own.any()) {
 		if(!ptr->use_empty()) {
 			for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
@@ -459,12 +484,23 @@ void CalcDFG::calcKeydep(llvm::Instruction* ptr)
                             //Insert the edge of the graph into the multimap.
                             //Each element can appear multiple times with different heights
                             //but only one time for each height
-                            const int h = NoCryptoFA::known[_it]->PlaintextHeight;
-                            auto equalheight = candidateVulnerablePoints.equal_range(h);
-                            if(std::find(equalheight.first,equalheight.second,std::pair<const int,Instruction*>(h,ptr)) == equalheight.second){
-                                    //It's new, let's insert it.
-                                candidateVulnerablePoints.insert(std::make_pair(h,ptr));
-                                md->isSubKey=true;
+                            { // for plaintext
+                                const int h = NoCryptoFA::known[_it]->PlaintextHeight;
+                                auto equalheight = candidateVulnerablePointsPT.equal_range(h);
+                                if(std::find(equalheight.first,equalheight.second,std::pair<const int,Instruction*>(h,ptr)) == equalheight.second){
+                                        //It's new, let's insert it.
+                                    candidateVulnerablePointsPT.insert(std::make_pair(h,ptr));
+                                    md->isSubKey=true;
+                                }
+                            }
+                            { // for ciphertext
+                                const int h = NoCryptoFA::known[_it]->CiphertextHeight;
+                                auto equalheight = candidateVulnerablePointsCT.equal_range(h);
+                                if(std::find(equalheight.first,equalheight.second,std::pair<const int,Instruction*>(h,ptr)) == equalheight.second){
+                                        //It's new, let's insert it.
+                                    candidateVulnerablePointsCT.insert(std::make_pair(h,ptr));
+                                    md->isSubKey=true;
+                                }
                             }
                         }
 					}

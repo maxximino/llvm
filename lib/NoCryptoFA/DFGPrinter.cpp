@@ -271,7 +271,7 @@ void DFGPrinter::doCSV(Module& M){
             llvm::raw_string_ostream instr_dump(instr_dump_str);
             instr_dump << "Pre_Max;Pre_Min;Pre_MinNZ;Pre_Avg;Pre_AvgNZ;";
             instr_dump << "Post_Max;Post_Min;Post_MinNZ;Post_Avg;Post_AvgNZ;";
-            instr_dump << "Min_MinNZ;Plaintext;PTHeight;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
+            instr_dump << "Min_MinNZ;Plaintext;PTHeight;CTHeight;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
             // parte per output dettagliato
             instr_dump << "IsAKeyOp;IsAKeyStart;PreKeyStart;SubKey;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;ValueSize;keydep_own.count;";
             instr_dump << "KD_Max;KD_Min;KD_MinNZ;KD_Avg;KD_AvgNZ;";
@@ -298,6 +298,7 @@ void DFGPrinter::doCSV(Module& M){
                 instr_dump << std::min(md->pre_stats.min_nonzero, md->post_stats.min_nonzero) << ";";
                 instr_dump << md->hasMetPlaintext << ";";
                 instr_dump << md->PlaintextHeight << ";";
+                instr_dump << md->CiphertextHeight << ";";
                 instr_dump << md->hasToBeProtected_pre << ";";
                 instr_dump << md->hasToBeProtected_post << ";";
                 instr_dump << (md->hasToBeProtected_pre | md->hasToBeProtected_post) << ";";
@@ -374,6 +375,7 @@ void DFGPrinter::doHTML(Module& M){
                 }
                 if(md->hasMetPlaintext) {
                     boxcont << "Ha incontrato il plaintext (" << md->PlaintextHeight << ")\n";
+                    boxcont << "Influenzer&agrave; ciphertext (" << md->CiphertextHeight << ")\n";
                 } else {
                     boxcont << "Non ha incontrato il plaintext\n";
                 }
