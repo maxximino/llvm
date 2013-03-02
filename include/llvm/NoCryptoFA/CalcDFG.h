@@ -74,11 +74,13 @@ namespace llvm
 			}
             static unsigned int getOperandSize(llvm::Instruction* ptr);
             static unsigned int getOperandSize(llvm::Type* t);
+            unsigned int getMSBEverSet();
 		private:
 			// This is the information computed by the analysis.
 			std::map<llvm::Instruction*, std::bitset<MAX_KEYBITS> > instr_bs;
 			std::map<NoCryptoFA::KeyStartInfo, std::bitset<MAX_KEYBITS> > GEPs;
             unsigned int keyLatestPos;
+            unsigned int MSBEverSet;
 			std::set<Function*> alreadyTransformed;
 			std::set<Instruction*> toBeVisited;
             std::set<Instruction*> cipherOutPoints;

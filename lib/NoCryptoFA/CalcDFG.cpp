@@ -39,6 +39,11 @@ void CalcDFG::assignKeyOwn(set<Instruction*> instructions,bitset<MAX_SUBBITS> No
     for(Instruction* p: instructions){
         getMD(p)->*OWN=getOutBitset(p,latestPos);
     }
+    MSBEverSet=std::max(latestPos,MSBEverSet);
+}
+unsigned int CalcDFG::getMSBEverSet()
+{
+    return MSBEverSet;
 }
 bool CalcDFG::runOnFunction(llvm::Function& Fun)
 {
@@ -78,6 +83,7 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
 			}
 		}
 	}
+    MSBEverSet=keyLatestPos;
     runBatched(keyStarts, [this](Instruction * p,long batchn)->bool {searchCipherOutPoints(p); return false;});
     runBatched(cipherOutPoints, [this](Instruction * p,long batchn)->bool {fillCiphertextHeight(p,batchn); return false;});
     runBatched(keyStarts, [this](Instruction * p,long batchn)->bool {calcKeydep(p); return false;});

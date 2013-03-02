@@ -176,14 +176,14 @@ for(bitset<SIZE> b : v) {
 }
 
 
-template <int SIZE>
-string printvec_large(std::vector<bitset<SIZE> >& v)
+template <unsigned int SIZE>
+string printvec_large(std::vector<bitset<SIZE> >& v,unsigned int upto)
 {
 	stringstream ss("");
 	ss << "<div class=\"matrice\">";
 for(bitset<SIZE> b : v) {
 		ss << "<div class=\"row\">";
-		for(unsigned int s = 0; s < b.size(); ++s) {
+        for(unsigned int s = 0; s < std::min(upto,SIZE); ++s) {
 			if(b[s]) {
 				ss << "<b></b>";
 			} else {
@@ -417,8 +417,9 @@ void DFGPrinter::doHTML(Module& M){
                     boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
                 }
                 if(md->isAKeyOperation) {
-                    boxcont << "Own:" << printbs_large<MAX_SUBBITS>(md->pre_own) << "\nPre:" << printvec_large<MAX_SUBBITS>(md->pre);
-                    boxcont << "\nPost_Own:" << printbs_large<MAX_SUBBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_SUBBITS>(md->post);
+                    boxcont << "Keydep_Own:" << printbs_large<MAX_KEYBITS>(md->keydep_own) << "\nKeydep:" << printvec_large<MAX_KEYBITS>(md->keydep,cd.getMSBEverSet());
+                    boxcont << "Pre_Own:" << printbs_large<MAX_SUBBITS>(md->pre_own) << "\nPre:" << printvec_large<MAX_SUBBITS>(md->pre,cd.getMSBEverSet());
+                    boxcont << "\nPost_Own:" << printbs_large<MAX_SUBBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_SUBBITS>(md->post,cd.getMSBEverSet());
                 }
                 fname << md->NodeName << ".html";
                 boxcont << "</pre></body></html>";
