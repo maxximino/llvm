@@ -9,7 +9,7 @@ class NeedsMaskPreVisitor : public InstVisitor<NeedsMaskPreVisitor>
 			bool hasEmpty = false;
 			bool retval = false;
         for(bitset<MAX_KEYBITS> b : md->keydep) {
-				if(b.count() < SecurityMargin.getValue()) {
+                if(b.count() < SecurityMargin.getValue()) { // TODO: fix!
 					hasEmpty = true;
 					break;
 				}

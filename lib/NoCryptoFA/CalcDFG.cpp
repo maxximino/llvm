@@ -34,12 +34,21 @@ CalcDFG* llvm::createCalcDFGPass()
 {
     return new CalcDFG();
 }
-void CalcDFG::assignKeyOwn(set<Instruction*> instructions,bitset<MAX_SUBBITS> NoCryptoFA::InstructionMetadata::*OWN){
+vector<bitset<MAX_KEYBITS> > CalcDFG::assignKeyOwn(set<Instruction*> instructions,bitset<MAX_SUBBITS> NoCryptoFA::InstructionMetadata::*OWN){
     unsigned int latestPos=0;
+    vector<bitset<MAX_KEYBITS> > subkeytokey;
+    subkeytokey.resize(MAX_SUBBITS);
     for(Instruction* p: instructions){
         getMD(p)->*OWN=getOutBitset(p,latestPos);
+        int setbit = 0;
+        for(int i = 0;i < MAX_SUBBITS; i++){
+            if((getMD(p)->*OWN).test(i)){
+                subkeytokey[i] = getMD(p)->keydep[setbit++];
+            }
+        }
     }
     MSBEverSet=std::max(latestPos,MSBEverSet);
+    return subkeytokey;
 }
 unsigned int CalcDFG::getMSBEverSet()
 {
@@ -105,8 +114,8 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
         errs() << "vulnerableBottom: riga "<< p->getDebugLoc().getLine() << *p << "\n";
     }
     cerr << "There were " << candidateVulnerablePointsPT.size() << " possibly vulnerable subkeys. T " << vulnerableTop.size() << " B " << vulnerableBottom.size() << " \n";
-    assignKeyOwn(vulnerableTop,&NoCryptoFA::InstructionMetadata::pre_own);
-    assignKeyOwn(vulnerableBottom,&NoCryptoFA::InstructionMetadata::post_own);
+    vector<bitset<MAX_KEYBITS> > pre_subkeytokey = assignKeyOwn(vulnerableTop,&NoCryptoFA::InstructionMetadata::pre_own);
+    vector<bitset<MAX_KEYBITS> > post_subkeytokey = assignKeyOwn(vulnerableBottom,&NoCryptoFA::InstructionMetadata::post_own);
     runBatched(vulnerableTop, [this](Instruction * p,long batchn)->bool {calcPre(p);return false;});
     set<Instruction*> firstVulnerableUses = set<Instruction*>();
     for(Instruction * p : vulnerableBottom) {
@@ -117,6 +126,52 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
         }
 
     runBatched(firstVulnerableUses, [this](Instruction * p,long batchn)->bool {calcPost(p);return false;});
+    /*
+       If doing it right with pointers to member as parameter of functions called inside the lambda function leads to:
+       => 0x00007ffff6c00df9 <+57>:    ud2
+       (yes,that's the output of gdb disass after a segfault)
+       then allow me a copy&paste. I'm the first one that hates to do it.
+    */
+    runBatched(keyStarts, [pre_subkeytokey,this](Instruction * p,long batchn)->bool {
+            llvm::NoCryptoFA::InstructionMetadata*md = getMD(p);
+            if(md->pre_keydep.size() > 0){return false;}
+            md->pre_keydep.resize(md->pre.size());
+            for(int i =0;i< md->pre.size();i++){
+                bitset<MAX_KEYBITS> kb=0;
+                for(int j =0;j< MAX_SUBBITS;j++){
+                    if(md->pre[i][j]){
+                        kb |= pre_subkeytokey[j];
+                    }
+                }
+                md->pre_keydep[i] = kb;
+            }
+            for(llvm::Instruction::use_iterator it = p->use_begin(); it != p->use_end(); ++it) {
+                if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                    toBeVisited.insert(_it);
+                }
+            }
+            return false;
+        });
+    runBatched(keyStarts, [post_subkeytokey,this](Instruction * p,long batchn)->bool {
+            llvm::NoCryptoFA::InstructionMetadata*md = getMD(p);
+            if(md->post_keydep.size() > 0){return false;}
+            md->post_keydep.resize(md->post.size());
+            for(int i =0;i< md->post.size();i++){
+                bitset<MAX_KEYBITS> kb=0;
+                for(int j =0;j< MAX_SUBBITS;j++){
+                    if(md->post[i][j]){
+                        kb |= post_subkeytokey[j];
+                    }
+                }
+                md->post_keydep[i] = kb;
+            }
+            for(llvm::Instruction::use_iterator it = p->use_begin(); it != p->use_end(); ++it) {
+                if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                    toBeVisited.insert(_it);
+                }
+            }
+            return false;
+        });
 	return false;
 }
 bitset<MAX_KEYBITS> massiveOR(std::vector<bitset<MAX_KEYBITS> >& input){

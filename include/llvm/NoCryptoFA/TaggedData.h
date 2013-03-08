@@ -65,8 +65,10 @@ namespace llvm
                 std::vector<std::bitset<MAX_KEYBITS> > keydep;
                 std::bitset<MAX_KEYBITS> keydep_own;
                 std::vector<std::bitset<MAX_SUBBITS> > pre;
+                std::vector<std::bitset<MAX_KEYBITS> > pre_keydep;
                 std::bitset<MAX_SUBBITS> pre_own;
                 std::vector<std::bitset<MAX_SUBBITS> > post;
+                std::vector<std::bitset<MAX_KEYBITS> > post_keydep;
                 std::bitset<MAX_SUBBITS> post_own;
 				Instruction* my_instruction;
 				Instruction* unmasked_value;
@@ -78,7 +80,7 @@ namespace llvm
                 bool deadBitsCalculated;
                 std::bitset<MAX_VALBITS> deadBits;
                 /* } */
-                InstructionMetadata(Instruction* ptr): keydep(0), keydep_own(0),pre(0),pre_own(0), post(0), post_own(0), MaskedValues(0), pre_stats() {
+                InstructionMetadata(Instruction* ptr): keydep(0), keydep_own(0),pre(0),pre_keydep(0),pre_own(0), post(0),post_keydep(0), post_own(0), MaskedValues(0), keydep_stats(),pre_stats(),post_stats() {
 					init();
 					my_instruction = ptr;
 					known[ptr] = this;

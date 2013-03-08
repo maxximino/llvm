@@ -228,16 +228,18 @@ void outFile(std::string nodename, std::string contenuto)
 	ofstream out(fname.append(nodename));
 	out << contenuto;
 }
-template<int NUMBITS>
-void calcStatistics(llvm::NoCryptoFA::StatisticInfo& stat, vector<bitset<NUMBITS> >& vect)
+template<int NUMBITS,int NUMBITS2>
+void calcStatistics(llvm::NoCryptoFA::StatisticInfo& stat, vector<bitset<NUMBITS> >& vect,vector<bitset<NUMBITS2> >& vect2)
 {
 	int avgcnt = 0;
 	int avgnzcnt = 0;
 	int cnt = 0;
 	stat.min = 999999;
 	stat.min_nonzero = 999999;
-for(bitset<NUMBITS> cur: vect) {
-		cnt = cur.count();
+    assert(vect.size() == vect2.size());
+    for(int i = 0;i<vect.size();i++) {
+
+        cnt = std::min(vect[i].count(),vect2[i].count());
 		avgcnt++;
 		if(cnt > stat.max) {
 			stat.max = cnt;
@@ -282,9 +284,9 @@ void DFGPrinter::doCSV(Module& M){
             for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
                 if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
                 llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
-                calcStatistics<MAX_KEYBITS>(md->keydep_stats, md->keydep);
-                calcStatistics<MAX_SUBBITS>(md->pre_stats, md->pre);
-                calcStatistics<MAX_SUBBITS>(md->post_stats, md->post);
+                calcStatistics<MAX_KEYBITS,MAX_KEYBITS>(md->keydep_stats, md->keydep,md->keydep);
+                calcStatistics<MAX_SUBBITS,MAX_KEYBITS>(md->pre_stats, md->pre,md->pre_keydep);
+                calcStatistics<MAX_SUBBITS,MAX_KEYBITS>(md->post_stats, md->post,md->post_keydep);
                 instr_dump << md->pre_stats.max << ";";
                 instr_dump << md->pre_stats.min << ";";
                 instr_dump << md->pre_stats.min_nonzero << ";";
@@ -419,8 +421,11 @@ void DFGPrinter::doHTML(Module& M){
                 if(md->isAKeyOperation) {
                     boxcont << "Keydep_Own:" << printbs_large<MAX_KEYBITS>(md->keydep_own) << "\nKeydep:" << printvec_large<MAX_KEYBITS>(md->keydep,cd.getMSBEverSet());
                     boxcont << "Pre_Own:" << printbs_large<MAX_SUBBITS>(md->pre_own) << "\nPre:" << printvec_large<MAX_SUBBITS>(md->pre,cd.getMSBEverSet());
+                    boxcont << "\nPre_Keydep:" << printvec_large<MAX_KEYBITS>(md->pre_keydep,cd.getMSBEverSet());
                     boxcont << "\nPost_Own:" << printbs_large<MAX_SUBBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_SUBBITS>(md->post,cd.getMSBEverSet());
+                    boxcont << "\nPost_Keydep:" << printvec_large<MAX_KEYBITS>(md->post_keydep,cd.getMSBEverSet());
                 }
+
                 fname << md->NodeName << ".html";
                 boxcont << "</pre></body></html>";
                 outFile(fname.str(), boxcont.str());

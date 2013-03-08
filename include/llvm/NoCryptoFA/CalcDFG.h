@@ -96,7 +96,8 @@ namespace llvm
             void fillCiphertextHeight(llvm::Instruction* ptr,int batchn);
             bitset<MAX_SUBBITS> getOutBitset(llvm::Instruction* ptr,unsigned int& latestPos);
 			bitset<MAX_KEYBITS> getOwnBitset(llvm::Instruction* ptr);
-            void assignKeyOwn(set<Instruction*> instructions,bitset<MAX_SUBBITS> NoCryptoFA::InstructionMetadata::*OWN);
+            vector<bitset<MAX_KEYBITS> > assignKeyOwn(set<Instruction*> instructions,bitset<MAX_SUBBITS> NoCryptoFA::InstructionMetadata::*OWN);
+            void reverseSubkeyDependency(Instruction* p,const vector<bitset<MAX_KEYBITS> >& subkeytokey,std::vector<bitset<MAX_SUBBITS> > NoCryptoFA::InstructionMetadata::*SUBKEY,std::vector<bitset<MAX_KEYBITS> > NoCryptoFA::InstructionMetadata::*KEYDEP_OUT );
 
 
 	};

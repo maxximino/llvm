@@ -9,7 +9,7 @@ class NeedsMaskPostVisitor : public InstVisitor<NeedsMaskPostVisitor>
 			bool hasEmpty = false;
 			bool retval = false;
         for(bitset<MAX_SUBBITS> b : md->post) {
-				if(b.count() < SecurityMargin.getValue()) {
+                if(b.count() < SecurityMargin.getValue()) { // todo: FIX
 					hasEmpty = true;
 					break;
 				}
