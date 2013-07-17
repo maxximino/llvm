@@ -93,6 +93,8 @@ namespace llvm
             void lookForMostVulnerableInstructionRepresentingTheEntireUserKey(list<pair<int,Instruction*> >& sorted,set<Instruction*>* most_vulnerable_instructions,bool NoCryptoFA::InstructionMetadata::* marker);
             void calcPost(llvm::Instruction* ptr);
             void calcPre(llvm::Instruction* ptr);
+            void checkPost_masking(llvm::Instruction* ptr);
+            void checkPre_masking(llvm::Instruction* ptr);
             void fillCiphertextHeight(llvm::Instruction* ptr,int batchn);
             bitset<MAX_SUBBITS> getOutBitset(llvm::Instruction* ptr,unsigned int& latestPos);
 			bitset<MAX_KEYBITS> getOwnBitset(llvm::Instruction* ptr);

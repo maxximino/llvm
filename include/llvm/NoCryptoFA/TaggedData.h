@@ -10,6 +10,7 @@
 #define MAX_KEYBITS 256
 #define MAX_SUBBITS 512
 #define MAX_VALBITS 64
+#define MAX_PROTECTION 999999
 using namespace std;
 using namespace llvm;
 
@@ -39,6 +40,7 @@ namespace llvm
 				    ORIGINAL_PROGRAM,
 				    CREATE_MASK,
 				    XOR_MASKED,
+                    OR_MASKED,
 				    AND_MASKED,
 				    CAST_MASKED,
 				    SHIFT_MASKED,
@@ -117,6 +119,16 @@ namespace llvm
                     llvm::raw_string_ostream os(representation);
                     os << *my_instruction;
                     return representation;
+                }
+                int getMySecurityMargin_pre(){
+                    return std::min(keydep_stats.min_nonzero,pre_stats.min_nonzero);
+                }
+                int getMySecurityMargin_post(){
+                    return std::min(keydep_stats.min_nonzero,post_stats.min_nonzero);
+                }
+
+                int getMySecurityMargin(){
+                    return std::min(getMySecurityMargin_pre(),getMySecurityMargin_post());
                 }
 			private:
                 std::string representation;

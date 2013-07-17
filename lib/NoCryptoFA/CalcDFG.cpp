@@ -29,7 +29,39 @@ void checkNeedsMasking_post(Instruction* ptr, NoCryptoFA::InstructionMetadata* m
 #include "NeedsMaskPostVisitor.h"
 #include "DeadBits.h"
 char llvm::CalcDFG::ID = 218;
+template<int NUMBITS,int NUMBITS2>
+void calcStatistics(llvm::NoCryptoFA::StatisticInfo& stat, vector<bitset<NUMBITS> >& vect,vector<bitset<NUMBITS2> >& vect2)
+{
+    int avgcnt = 0;
+    int avgnzcnt = 0;
+    int cnt = 0;
+    stat.min = MAX_PROTECTION;
+    stat.min_nonzero = MAX_PROTECTION;
+    //std::cerr << "vect.size() == " << vect.size() << " vect2.size() == " << vect2.size() << std::endl;
+    assert(vect.size() == vect2.size());
+    for(int i = 0;i<vect.size();i++) {
 
+        cnt = std::min(vect[i].count(),vect2[i].count());
+        avgcnt++;
+        if(cnt > stat.max) {
+            stat.max = cnt;
+        }
+        if(cnt < stat.min) {
+            stat.min = cnt;
+        }
+        if(cnt > 0) {
+            stat.avg_nonzero += cnt;
+            stat.avg += cnt;
+            avgnzcnt++;
+            if(cnt < stat.min_nonzero) {
+                stat.min_nonzero = cnt;
+            }
+        }
+    }
+    if(stat.min == 0 && stat.min_nonzero==MAX_PROTECTION) {stat.min_nonzero=0;}
+    if(avgcnt > 0) { stat.avg = stat.avg / avgcnt; }
+    if(avgnzcnt > 0) { stat.avg_nonzero = stat.avg_nonzero / avgnzcnt; }
+}
 CalcDFG* llvm::createCalcDFGPass()
 {
     return new CalcDFG();
@@ -172,6 +204,8 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
             }
             return false;
         });
+    runBatched(vulnerableTop, [this](Instruction * p,long batchn)->bool {checkPre_masking(p);return false;});
+    runBatched(firstVulnerableUses, [this](Instruction * p,long batchn)->bool {checkPost_masking(p);return false;});
 	return false;
 }
 bitset<MAX_KEYBITS> massiveOR(std::vector<bitset<MAX_KEYBITS> >& input){
@@ -222,6 +256,7 @@ bitset<MAX_KEYBITS> checkForOptimizations(bitset<MAX_KEYBITS>& covered,bitset<MA
                   covered &= ~new_mandatory;
                   howmany = new_mandatory.count();
                   new_previously_covered = getFirstNSetBit(u->leftover & ~userkey_dep_full,howmany);
+                  u->taken |= new_previously_covered;
                   u->leftover &= ~new_previously_covered;
                   covered |= new_previously_covered;
                   if(mandatory.count() == num){break;}
@@ -264,7 +299,7 @@ void CalcDFG::lookForMostVulnerableInstructionRepresentingTheEntireUserKey(list<
      userkey_dep_full = massiveOR(md->keydep);
      cerr << "Evaluating instruction that depends from " << userkey_dep_full.count() << " bits\n";
      newbits = userkey_dep_full & ~covered;
-     //mandatory=checkForOptimizations(covered,covering,userkey_dep_full,md->keydep.size(),doubts);
+     mandatory=checkForOptimizations(covered,covering,userkey_dep_full,md->keydep.size(),doubts);
      newbits |= mandatory;
      cerr << "newbits A " << newbits.count() << " bits\n";
      if(newbits.count() > 0){ //This SSA register covers a userkey bit not covered in the previous generation.
@@ -280,11 +315,10 @@ void CalcDFG::lookForMostVulnerableInstructionRepresentingTheEntireUserKey(list<
        * but are NOT USEFUL in marking those bits as "leakable".
        */
       newbits=newbits &~ covering;
-      cerr << "newbits B " << newbits.count() << " bits\n";
+      assert((newbits & mandatory) == mandatory);
       newbits |= mandatory;
       //A byte cannot give informations on more than 8 new key bits! So let's filter them out. Another instruction will "pick" them.
       newbits=limitTakenBits(md->keydep.size(),newbits,mandatory,doubts);
-      cerr << "newbits C " << newbits.count() << " bits\n";
       covering |= newbits;
       most_vulnerable_instructions->insert(it->second);
       md->*marker=true;
@@ -444,7 +478,6 @@ void CalcDFG::calcPost(Instruction* ptr)
 	if(!md->isAKeyOperation) {return;}
 	bool changed = false;
     vector<bitset<MAX_SUBBITS> > oldPost = md->post;
-	bool oldProt = md->hasToBeProtected_post;
     ClearMatrix<MAX_SUBBITS>(md->post);
 	for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
 		if(Instruction* _it = dyn_cast<Instruction>(*it)) {
@@ -467,9 +500,8 @@ void CalcDFG::calcPost(Instruction* ptr)
             cbv.visit(_it);
 		}
 	}
-	checkNeedsMasking_post(ptr, md);
+
     if(!areVectorOfBitsetEqual<MAX_SUBBITS>(oldPost, md->post)) { changed = true; }
-	if(oldProt != md->hasToBeProtected_post) { changed = true; }
 	if(changed) {
 		for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
 			if(Instruction* _it = dyn_cast<Instruction>(*it)) {
@@ -479,31 +511,57 @@ void CalcDFG::calcPost(Instruction* ptr)
 	}
 }
 
+void CalcDFG::checkPost_masking(Instruction* ptr)
+{
+    NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
+    if(!md->isAKeyOperation) {return;}
+    bool changed = false;
+    bool oldProt = md->hasToBeProtected_post;
+    if(!md->hasMetPlaintext) { md->hasToBeProtected_post = false;}
+    else{
+        calcStatistics<MAX_SUBBITS,MAX_KEYBITS>(md->post_stats, md->post,md->post_keydep);
+        NeedsMaskPostVisitor nmpv;
+        nmpv.visit(ptr);
+        if(oldProt != md->hasToBeProtected_post) { changed = true; }
+        for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
+             if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                toBeVisited.insert(_it);
+             }
+         }
+    }
+}
 
-void checkNeedsMasking_post(Instruction* ptr, NoCryptoFA::InstructionMetadata* md)
+
+void CalcDFG::checkPre_masking(llvm::Instruction* ptr)
 {
-	if(!md->hasMetPlaintext) { md->hasToBeProtected_post = false; return;}
-	NeedsMaskPostVisitor nmpv;
-	nmpv.visit(ptr);
-}
-void checkNeedsMasking_pre(Instruction* ptr, NoCryptoFA::InstructionMetadata* md)
-{
-	if(!md->hasMetPlaintext) { md->hasToBeProtected_pre = false; return;}
-	NeedsMaskPreVisitor nmpv;
-	nmpv.visit(ptr);
-}
+    NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
+    bool changed = false;
+    bool oldProtected = md->hasToBeProtected_pre;
+    if(!md->hasMetPlaintext) { md->hasToBeProtected_pre = false;}
+    else{
+        calcStatistics<MAX_SUBBITS,MAX_KEYBITS>(md->pre_stats, md->pre,md->pre_keydep);
+        NeedsMaskPreVisitor nmpv;
+        nmpv.visit(ptr);
+    }
+    if(md->hasToBeProtected_pre != oldProtected){changed=true;}
+        if(!ptr->use_empty()) {
+            for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
+                if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                    toBeVisited.insert(_it);
+                }
+            }
+        }
+ }
+
 void CalcDFG::calcPre(llvm::Instruction* ptr)
 {
     NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
     bool changed = false;
     vector<bitset<MAX_SUBBITS> > oldPre = md->pre;
-    bool oldProtected = md->hasToBeProtected_pre;
     ClearMatrix<MAX_SUBBITS>(md->pre);
     CalcForwardVisitor<MAX_SUBBITS,&NoCryptoFA::InstructionMetadata::pre,&NoCryptoFA::InstructionMetadata::pre_own> cfv;
     cfv.visit(ptr);
-    checkNeedsMasking_pre(ptr, md);
     if(!areVectorOfBitsetEqual<MAX_SUBBITS>(oldPre, md->pre)) { changed = true; }
-    if(md->hasToBeProtected_pre != oldProtected){changed=true;}
     if(changed || md->pre_own.any()) {
         if(!ptr->use_empty()) {
             for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
@@ -536,6 +594,7 @@ void CalcDFG::calcKeydep(llvm::Instruction* ptr)
     cfv.visit(ptr);
     if(!areVectorOfBitsetEqual<MAX_KEYBITS>(oldKeydep, md->keydep)) { changed = true; }
     if(changed || md->keydep_own.any()) {
+        calcStatistics<MAX_KEYBITS,MAX_KEYBITS>(md->keydep_stats, md->keydep,md->keydep);
 		if(!ptr->use_empty()) {
 			for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
 				if(Instruction* _it = dyn_cast<Instruction>(*it)) {

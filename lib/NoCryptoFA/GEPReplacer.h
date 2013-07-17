@@ -80,7 +80,7 @@ struct GEPReplacer {
 			ib_fo.SetInsertPoint(FuncOut);
 			vector<Value*> newshares;
 			for(unsigned int i = 0; i < MaskingOrder; i++) { newshares.push_back(ib_entry.CreateCall(&rand)); }
-			Value* tmpsbox = ib_entry.CreateAlloca(llvm::Type::getIntNTy(Ctx, size), llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), len_roundup, false));
+			Value* tmpsbox = ib_entry.CreateAlloca(llvm::Type::getIntNTy(Ctx, size), llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), len_roundup +1, false));
 			ib_entry.CreateBr(ForBody);
 			PHINode* i_start = ib_for.CreatePHI(llvm::Type::getInt64Ty(Ctx), 2);
 			i_start->addIncoming(llvm::ConstantInt::get(llvm::Type::getInt64Ty(Ctx), 0, false), Entry);

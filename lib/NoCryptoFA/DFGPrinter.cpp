@@ -228,38 +228,7 @@ void outFile(std::string nodename, std::string contenuto)
 	ofstream out(fname.append(nodename));
 	out << contenuto;
 }
-template<int NUMBITS,int NUMBITS2>
-void calcStatistics(llvm::NoCryptoFA::StatisticInfo& stat, vector<bitset<NUMBITS> >& vect,vector<bitset<NUMBITS2> >& vect2)
-{
-	int avgcnt = 0;
-	int avgnzcnt = 0;
-	int cnt = 0;
-	stat.min = 999999;
-	stat.min_nonzero = 999999;
-    assert(vect.size() == vect2.size());
-    for(int i = 0;i<vect.size();i++) {
 
-        cnt = std::min(vect[i].count(),vect2[i].count());
-		avgcnt++;
-		if(cnt > stat.max) {
-			stat.max = cnt;
-		}
-		if(cnt < stat.min) {
-			stat.min = cnt;
-		}
-		if(cnt > 0) {
-			stat.avg_nonzero += cnt;
-			stat.avg += cnt;
-			avgnzcnt++;
-			if(cnt < stat.min_nonzero) {
-				stat.min_nonzero = cnt;
-			}
-		}
-	}
-    if(stat.min == 0 && stat.min_nonzero==999999) {stat.min_nonzero=0;}
-	if(avgcnt > 0) { stat.avg = stat.avg / avgcnt; }
-	if(avgnzcnt > 0) { stat.avg_nonzero = stat.avg_nonzero / avgnzcnt; }
-}
 void DFGPrinter::doCSV(Module& M){
     for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
         for(llvm::Function::iterator BB = F->begin(),
@@ -284,9 +253,7 @@ void DFGPrinter::doCSV(Module& M){
             for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
                 if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
                 llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
-                calcStatistics<MAX_KEYBITS,MAX_KEYBITS>(md->keydep_stats, md->keydep,md->keydep);
-                calcStatistics<MAX_SUBBITS,MAX_KEYBITS>(md->pre_stats, md->pre,md->pre_keydep);
-                calcStatistics<MAX_SUBBITS,MAX_KEYBITS>(md->post_stats, md->post,md->post_keydep);
+
                 instr_dump << md->pre_stats.max << ";";
                 instr_dump << md->pre_stats.min << ";";
                 instr_dump << md->pre_stats.min_nonzero << ";";
@@ -360,7 +327,7 @@ void DFGPrinter::doHTML(Module& M){
                 std::stringstream fname("");
                 boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/></head><body><pre>";
                 llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
-                os << md->getAsString() << "\n";
+                os << "I:<span>" << md->getAsString() << "</span>\n";
                 if(md->isAKeyOperation) {
                     if(md->isAKeyStart) {
                         os << "KeyStart" << "\n";

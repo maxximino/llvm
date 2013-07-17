@@ -48,6 +48,28 @@ class MaskingVisitor : public InstVisitor<MaskingVisitor, bool>
 			cerr << "Missing opcode mask equivalent:" << inst.getOpcodeName() << endl;
 			return false;
 		}
+        bool visitOr(BinaryOperator & inst){
+            //DeMorgan's theorem: a OR b = !(!a AND !b)
+            NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
+            llvm::IRBuilder<> ib = llvm::IRBuilder<>(inst.getContext());
+            ib.SetInsertPoint(&inst);
+            Value *n1, *n2, *a, *ret;
+#define I(var,val) var=val; BuildMetadata(var, &inst, NoCryptoFA::InstructionMetadata::OR_MASKED)
+            I(n1,ib.CreateXor(inst.getOperand(0),-1));
+            I(n2,ib.CreateXor(inst.getOperand(1),-1));
+            visitXor((BinaryOperator&)*n1);
+            visitXor((BinaryOperator&)*n2);
+            I(a,ib.CreateAnd(n1,n2));
+            visitAnd((BinaryOperator&)*a);
+            I(ret,ib.CreateXor(a,-1));
+            visitXor((BinaryOperator&)*ret);
+#undef I
+            NoCryptoFA::InstructionMetadata* ret_md = NoCryptoFA::known[(Instruction*)ret];
+            for(unsigned int j = 0; j <= MaskingOrder; j++) {
+                md->MaskedValues.push_back(ret_md->MaskedValues[j]);
+            }
+            return true;
+        }
 		bool visitAnd(BinaryOperator& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
 			llvm::IRBuilder<> ib = llvm::IRBuilder<>(inst.getContext());
