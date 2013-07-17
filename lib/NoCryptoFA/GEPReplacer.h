@@ -178,4 +178,4 @@ struct GEPReplacer {
 			return fp != NULL;
 		}
 };
-auto GEPReplacer::shareTemps = map<pair<Function*, Type*>, vector<Value*> >();
+map<pair<Function*, Type*>, vector<Value*> > GEPReplacer::shareTemps = map<pair<Function*, Type*>, vector<Value*> >();

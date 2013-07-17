@@ -11,6 +11,7 @@
 #define MAX_SUBBITS 512
 #define MAX_VALBITS 64
 #define MAX_PROTECTION 999999
+#define MAX_OUTBITS (8*16)
 using namespace std;
 using namespace llvm;
 
@@ -81,6 +82,10 @@ namespace llvm
                 /*Only for SBOXes {*/
                 bool deadBitsCalculated;
                 std::bitset<MAX_VALBITS> deadBits;
+                /* } */
+                /*For fault analysis {*/
+                std::vector<std::bitset<MAX_OUTBITS> > out_hit;
+                std::vector<std::vector<std::bitset<MAX_SUBBITS> > > fault_keys;
                 /* } */
                 InstructionMetadata(Instruction* ptr): keydep(0), keydep_own(0),pre(0),pre_keydep(0),pre_own(0), post(0),post_keydep(0), post_own(0), MaskedValues(0), keydep_stats(),pre_stats(),post_stats() {
 					init();
