@@ -38,6 +38,7 @@ class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, 
 				for(unsigned int i = 0; i < maxcp; i++) { tmp[idx + i] = vec[i]; }
 			}
 			for(unsigned int i = 0; i < vec.size(); i++) { vec[i] = tmp[i]; }
+
 		}
         void setDiagonal(vector<bitset<MAXBITS> >& data,bitset<MAXBITS> ownkey){
             int datapos=0;
