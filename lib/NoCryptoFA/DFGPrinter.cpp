@@ -245,7 +245,7 @@ void DFGPrinter::doCSV(Module& M){
             instr_dump << "Min_MinNZ;Plaintext;PTHeight;CTHeight;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
             // parte per output dettagliato
             instr_dump << "IsAKeyOp;IsAKeyStart;PreKeyStart;SubKey;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;ValueSize;keydep_own.count;";
-            instr_dump << "KD_Max;KD_Min;KD_MinNZ;KD_Avg;KD_AvgNZ;";
+            instr_dump << "KD_Max;KD_Min;KD_MinNZ;KD_Avg;KD_AvgNZ;FOH_min;FOH_minnz;FOH_max;FK_min;FK_minnz;FK_max";
             instr_dump << "pre;pre_own;post;post_own;";
             // fine parte per output dettagliato
             instr_dump << "\"Full instruction\"\n";
@@ -294,6 +294,12 @@ void DFGPrinter::doCSV(Module& M){
                 instr_dump << md->keydep_stats.min_nonzero << ";";
                 instr_dump << md->keydep_stats.avg << ";";
                 instr_dump << md->keydep_stats.avg_nonzero << ";";
+                instr_dump << md->outhit_stats.min << ";";
+                instr_dump << md->outhit_stats.min_nonzero << ";";
+                instr_dump << md->outhit_stats.max << ";";
+                instr_dump << md->faultkeybits_stats.min << ";";
+                instr_dump << md->faultkeybits_stats.min_nonzero << ";";
+                instr_dump << md->faultkeybits_stats.max << ";";
 
                 /* Keep the code here, it might get useful in a far future... actually, it's not worth the time and filesize increase.
                 instr_dump << print_syntethic<MAX_SUBBITS>(md->pre) << ";";
@@ -367,6 +373,9 @@ void DFGPrinter::doHTML(Module& M){
                     case NoCryptoFA::InstructionMetadata::XOR_MASKED:
                         boxcont << "Origine istruzione: Mascheratura di uno XOR\n";
                         break;
+                    case NoCryptoFA::InstructionMetadata::OR_MASKED:
+                        boxcont << "Origine istruzione: Mascheratura di un OR\n";
+                        break;
                     case NoCryptoFA::InstructionMetadata::CAST_MASKED:
                         boxcont << "Origine istruzione: Mascheratura di un CAST\n";
                         break;
@@ -391,6 +400,8 @@ void DFGPrinter::doHTML(Module& M){
                     boxcont << "\nPre_Keydep:" << printvec_large<MAX_KEYBITS>(md->pre_keydep,cd.getMSBEverSet());
                     boxcont << "\nPost_Own:" << printbs_large<MAX_SUBBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_SUBBITS>(md->post,cd.getMSBEverSet());
                     boxcont << "\nPost_Keydep:" << printvec_large<MAX_KEYBITS>(md->post_keydep,cd.getMSBEverSet());
+                    boxcont << "\nFA_OutHits:" << printvec_large<MAX_OUTBITS>(md->out_hit,cd.getMSBEverSet());
+                    boxcont << "\nFA_keydeps: eh no questa &grave; in 3d. min: " << md->faultkeybits_stats.min << " min_nz:" << md->faultkeybits_stats.min_nonzero << " max :"<< md->faultkeybits_stats.max;
                 }
 
                 fname << md->NodeName << ".html";

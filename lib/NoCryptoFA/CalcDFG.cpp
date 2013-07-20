@@ -29,6 +29,18 @@ void checkNeedsMasking_post(Instruction* ptr, NoCryptoFA::InstructionMetadata* m
 #include "NeedsMaskPostVisitor.h"
 #include "DeadBits.h"
 char llvm::CalcDFG::ID = 218;
+
+template<int MAXBITS>
+void setDiagonal(vector<bitset<MAXBITS> >& data,bitset<MAXBITS> ownkey){
+    int datapos=0;
+    for(int pos=0;pos<MAXBITS;pos++){
+        if(ownkey[pos]){
+            data[datapos][pos] = 1;
+            datapos++;
+            assert((size_t)datapos <= data.size());
+        }
+    }
+}
 template<int NUMBITS,int NUMBITS2>
 void calcStatistics(llvm::NoCryptoFA::StatisticInfo& stat, vector<bitset<NUMBITS> >& vect,vector<bitset<NUMBITS2> >& vect2)
 {
@@ -43,25 +55,99 @@ void calcStatistics(llvm::NoCryptoFA::StatisticInfo& stat, vector<bitset<NUMBITS
 
         cnt = std::min(vect[i].count(),vect2[i].count());
         avgcnt++;
-        if(cnt > stat.max) {
-            stat.max = cnt;
-        }
-        if(cnt < stat.min) {
-            stat.min = cnt;
-        }
+        stat.max = std::max(stat.max,cnt);
+        stat.min = std::min(stat.min,cnt);
         if(cnt > 0) {
             stat.avg_nonzero += cnt;
             stat.avg += cnt;
             avgnzcnt++;
-            if(cnt < stat.min_nonzero) {
-                stat.min_nonzero = cnt;
-            }
+            stat.min_nonzero = std::min(stat.min_nonzero,cnt);
         }
     }
     if(stat.min == 0 && stat.min_nonzero==MAX_PROTECTION) {stat.min_nonzero=0;}
     if(avgcnt > 0) { stat.avg = stat.avg / avgcnt; }
     if(avgnzcnt > 0) { stat.avg_nonzero = stat.avg_nonzero / avgnzcnt; }
 }
+template<int NUMBITS>
+void calcStatistics_singlevect(llvm::NoCryptoFA::StatisticInfo& stat, vector<bitset<NUMBITS> >& vect)
+{
+    int avgcnt = 0;
+    int avgnzcnt = 0;
+    int cnt = 0;
+    stat.min = MAX_PROTECTION;
+    stat.min_nonzero = MAX_PROTECTION;
+    for(int i = 0;i<vect.size();i++) {
+
+        cnt = vect[i].count();
+        avgcnt++;
+        stat.max = std::max(stat.max,cnt);
+        stat.min = std::min(stat.min,cnt);
+        if(cnt > 0) {
+            stat.avg_nonzero += cnt;
+            stat.avg += cnt;
+            avgnzcnt++;
+            stat.min_nonzero = std::min(stat.min_nonzero,cnt);
+        }
+    }
+    if(stat.min == 0 && stat.min_nonzero==MAX_PROTECTION) {stat.min_nonzero=0;}
+    if(avgcnt > 0) { stat.avg = stat.avg / avgcnt; }
+    if(avgnzcnt > 0) { stat.avg_nonzero = stat.avg_nonzero / avgnzcnt; }
+}
+void get_minimum_hw(vector<bitset<MAX_SUBBITS> > &vect,int* min, int* min_nz){
+       int cnt;
+       *min=MAX_PROTECTION;
+       *min_nz = MAX_PROTECTION;
+       for(int i = 0;i<vect.size();i++) {
+           cnt=vect[i].count();
+           *min=std::min(cnt,*min);
+           if(cnt > 0){
+               *min_nz=std::min(cnt,*min_nz);
+           }
+       }
+}
+/*
+As the structure that holds data for each instruction, about each bit and the key bit that it meets till the output
+is a three-dimensional structure (DATA BIT, OUTPUT BIT, KEY BIT) => 0/1
+I define the min/max/avg as:
+min = min[for each data bit]( min[for each output bit](key bits at 1)) <--- the minimum protection order
+max = hw(or[for each data bit]( or[for each output bit](key bits at 1))) <--- all the bits that you can get info about by faulting the instruction
+avg =  Not defined, always 0.
+Excluding any non-meaningful output bit by using out_hit information.
+*/
+void calcStatistics_faultkeybits(llvm::NoCryptoFA::StatisticInfo& stat, vector<vector<bitset<MAX_SUBBITS> > >& databits, vector<bitset<MAX_OUTBITS>>& out_hit)
+{
+    int cnt;
+    int cnt_min;
+    int cnt_min_nz;
+    stat.min = MAX_PROTECTION;
+    stat.min_nonzero = MAX_PROTECTION;
+    bitset<MAX_SUBBITS> max_bs;
+    max_bs.reset();
+    for(int i = 0;i<databits.size();i++) {
+        assert(databits[i].size() == out_hit.size());
+        cnt_min=MAX_PROTECTION;
+        cnt_min_nz = MAX_PROTECTION;
+        for(int j = 0;i<databits[i].size();j++) {
+            if(out_hit[i][j] == 0) continue;
+            cnt=databits[i][j].count();
+            cnt_min=std::min(cnt,cnt_min);
+            if(cnt > 0){
+                cnt_min_nz=std::min(cnt,cnt_min_nz);
+            }
+        }
+        stat.min = std::min(stat.min,cnt_min);
+        stat.min_nonzero = std::min(stat.min_nonzero,cnt_min_nz);
+        for(int j = 0; j < databits[i].size(); j++){
+             if(out_hit[i][j] == 0) continue;
+             max_bs |= databits[i][j];
+        }
+    }
+    stat.max=max_bs.count();
+    stat.avg=0;
+    stat.avg_nonzero=0;
+    if(stat.min == 0 && stat.min_nonzero==MAX_PROTECTION) {stat.min_nonzero=0;}
+}
+
 CalcDFG* llvm::createCalcDFGPass()
 {
     return new CalcDFG();
@@ -71,7 +157,7 @@ vector<bitset<MAX_KEYBITS> > CalcDFG::assignKeyOwn(set<Instruction*> instruction
     vector<bitset<MAX_KEYBITS> > subkeytokey;
     subkeytokey.resize(MAX_SUBBITS);
     for(Instruction* p: instructions){
-        getMD(p)->*OWN=getOutBitset(p,latestPos);
+        getMD(p)->*OWN=getOutBitset<MAX_SUBBITS>(p,latestPos);
         int setbit = 0;
         for(int i = 0;i < MAX_SUBBITS; i++){
             if((getMD(p)->*OWN).test(i)){
@@ -115,10 +201,12 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
                 NoCryptoFA::known[I]->keydep.resize(size);
 				NoCryptoFA::known[I]->post.resize(size);
                 NoCryptoFA::known[I]->pre.resize(size);
+                NoCryptoFA::known[I]->out_hit.resize(size);
                 for(unsigned int i = 0; i < size; ++i) {
                     NoCryptoFA::known[I]->keydep[i] = bitset<MAX_KEYBITS>(0);
                     NoCryptoFA::known[I]->pre[i] = bitset<MAX_SUBBITS>(0);
                     NoCryptoFA::known[I]->post[i] = bitset<MAX_SUBBITS>(0);
+                    NoCryptoFA::known[I]->out_hit[i] = bitset<MAX_OUTBITS>(0);
 				}
                 calcDeadBits(I);
 			}
@@ -204,6 +292,38 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
             }
             return false;
         });
+
+    /*Qui dobbiamo mettere i calcoli per gli attacchi a guasti */
+    unsigned int lp=0;
+    set<Instruction*> cipherOutValues;
+    for( Instruction* co :cipherOutPoints){
+        StoreInst* si = dyn_cast<StoreInst>(co);
+        if(si==NULL){
+            errs() << co << " IS NOT A STORE BUT IS A CIPHEROUTPOINT. SKIPPING!\n";
+            continue;
+        }
+        cipherOutValues.insert(dyn_cast<Instruction>(si->getValueOperand()));
+    }
+     //Assegniamo gli out_hit ai primi
+    for( Instruction* co :cipherOutValues){
+        llvm::NoCryptoFA::InstructionMetadata*md = getMD(co);
+        md->out_hit_own = getOutBitset<MAX_OUTBITS>(co,lp);
+    }
+    runBatched(cipherOutValues, [this](Instruction * p,long batchn)->bool { calcOuthit(p); return false;});
+
+    /*calcolo statistiche*/
+    runBatched(cipherOutPoints, [this](Instruction * p,long batchn)->bool {
+                llvm::NoCryptoFA::InstructionMetadata* md = getMD(p);
+                calcStatistics_singlevect<MAX_OUTBITS>(md->outhit_stats,md->out_hit);
+                calcStatistics_faultkeybits(md->faultkeybits_stats,md->fault_keys,md->out_hit);
+                for(llvm::Instruction::op_iterator it = p->op_begin(); it != p->op_end(); ++it) {
+                    if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                        toBeVisited.insert(_it);
+                    }
+                }
+                return false;
+    });
+
     runBatched(vulnerableTop, [this](Instruction * p,long batchn)->bool {checkPre_masking(p);return false;});
     runBatched(firstVulnerableUses, [this](Instruction * p,long batchn)->bool {checkPost_masking(p);return false;});
 	return false;
@@ -357,17 +477,18 @@ void CalcDFG::fillCiphertextHeight(Instruction *ptr, int batchn){
     }
 }
 #include <iostream>
-//Needs generalization
-bitset<MAX_SUBBITS> CalcDFG::getOutBitset(llvm::Instruction* ptr,unsigned int& latestPos)
+
+template<int SIZE>
+bitset<SIZE> CalcDFG::getOutBitset(llvm::Instruction* ptr,unsigned int& latestPos)
 {
 	Value* op = ptr;
     unsigned int outQty = getOperandSize(op->getType());
-    if(latestPos + outQty > MAX_SUBBITS) {
-        errs() << "Something wrong with CalcDFG: " << latestPos << " + " << outQty << " > " << MAX_SUBBITS << " for instruction " << *ptr <<"\n";
-        return bitset<MAX_SUBBITS>(0);
+    if(latestPos + outQty > SIZE) {
+        errs() << "Something wrong with CalcDFG: " << latestPos << " + " << outQty << " > " << SIZE << " for instruction " << *ptr <<"\n";
+        return bitset<SIZE>(0);
 	}
     //  cerr << "latestPos " << latestPos << " outQty:" << outQty << endl;
-    bitset<MAX_SUBBITS> mybs;
+    bitset<SIZE> mybs;
 	mybs.reset();
     for(unsigned int i = latestPos; i < (latestPos + outQty); i++) {
 		mybs[i] = 1;
@@ -401,6 +522,7 @@ bool CalcDFG::shouldBeProtected(Instruction* ptr)
 	return (MaskEverything && md->hasMetPlaintext) || md->hasToBeProtected_pre || md->hasToBeProtected_post;
 	//   return NoCryptoFA::known[ptr]->hasMetPlaintext;
 }
+
 bitset<MAX_KEYBITS> CalcDFG::getOwnBitset(llvm::Instruction* ptr)
 {
 	raw_fd_ostream rerr(2, false);
@@ -461,17 +583,38 @@ static void ClearMatrix(vector<bitset<BITNUM> >& vec)
 		vec[i].reset();
 	}
 }
-template<int MAXBITS>
-void setDiagonal(vector<bitset<MAXBITS> >& data,bitset<MAXBITS> ownkey){
-    int datapos=0;
-    for(int pos=0;pos<MAXBITS;pos++){
-        if(ownkey[pos]){
-            data[datapos][pos] = 1;
-            datapos++;
-            assert((size_t)datapos <= data.size());
+
+void CalcDFG::calcOuthit(Instruction* ptr)
+{
+    NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
+    if(!md->isAKeyOperation) {return;}
+    bool changed = false;
+    vector<bitset<MAX_OUTBITS> > oldOuthit = md->out_hit;
+    ClearMatrix<MAX_OUTBITS>(md->out_hit);
+      if(md->out_hit_own.count() > 0) {
+                setDiagonal<MAX_OUTBITS>(md->out_hit,md->out_hit_own);
+      }
+    CalcBackwardVisitor<MAX_OUTBITS,&NoCryptoFA::InstructionMetadata::out_hit,&NoCryptoFA::InstructionMetadata::out_hit_own> cbv;
+    for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
+        if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+            NoCryptoFA::InstructionMetadata* usemd = NoCryptoFA::known[_it];
+            cbv.md = md;
+            cbv.usemd = usemd;
+            cbv.visit(_it);
+        }
+    }
+
+    if(!areVectorOfBitsetEqual<MAX_OUTBITS>(oldOuthit, md->out_hit)) { changed = true; }
+    if(changed) {
+        for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
+            if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                toBeVisited.insert(_it);
+            }
         }
     }
 }
+
+
 void CalcDFG::calcPost(Instruction* ptr)
 {
 	NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];

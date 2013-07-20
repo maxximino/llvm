@@ -85,7 +85,12 @@ namespace llvm
                 /* } */
                 /*For fault analysis {*/
                 std::vector<std::bitset<MAX_OUTBITS> > out_hit;
+                std::bitset<MAX_OUTBITS> out_hit_own;
                 std::vector<std::vector<std::bitset<MAX_SUBBITS> > > fault_keys;
+                /*      {  //Statistics for output  */
+                            StatisticInfo outhit_stats;
+                            StatisticInfo faultkeybits_stats;
+                /*      } */
                 /* } */
                 InstructionMetadata(Instruction* ptr): keydep(0), keydep_own(0),pre(0),pre_keydep(0),pre_own(0), post(0),post_keydep(0), post_own(0), MaskedValues(0), keydep_stats(),pre_stats(),post_stats() {
 					init();

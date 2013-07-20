@@ -92,11 +92,13 @@ namespace llvm
             //bool lookForBackwardsKeyPoints(llvm::Instruction* ptr);
             void lookForMostVulnerableInstructionRepresentingTheEntireUserKey(list<pair<int,Instruction*> >& sorted,set<Instruction*>* most_vulnerable_instructions,bool NoCryptoFA::InstructionMetadata::* marker);
             void calcPost(llvm::Instruction* ptr);
+            void calcOuthit(llvm::Instruction* ptr);
             void calcPre(llvm::Instruction* ptr);
             void checkPost_masking(llvm::Instruction* ptr);
             void checkPre_masking(llvm::Instruction* ptr);
             void fillCiphertextHeight(llvm::Instruction* ptr,int batchn);
-            bitset<MAX_SUBBITS> getOutBitset(llvm::Instruction* ptr,unsigned int& latestPos);
+            template <int SIZE>
+            bitset<SIZE> getOutBitset(llvm::Instruction* ptr,unsigned int& latestPos);
 			bitset<MAX_KEYBITS> getOwnBitset(llvm::Instruction* ptr);
             vector<bitset<MAX_KEYBITS> > assignKeyOwn(set<Instruction*> instructions,bitset<MAX_SUBBITS> NoCryptoFA::InstructionMetadata::*OWN);
             void reverseSubkeyDependency(Instruction* p,const vector<bitset<MAX_KEYBITS> >& subkeytokey,std::vector<bitset<MAX_SUBBITS> > NoCryptoFA::InstructionMetadata::*SUBKEY,std::vector<bitset<MAX_KEYBITS> > NoCryptoFA::InstructionMetadata::*KEYDEP_OUT );
