@@ -174,8 +174,53 @@ for(bitset<SIZE> b : v) {
 	}
 	return ss.str();
 }
+static const std::string base64_chars =
+             "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+             "abcdefghijklmnopqrstuvwxyz"
+             "0123456789+/";
+std::string base64_encode(char const* bytes_to_encode, unsigned int in_len) {
+  std::string ret;
+  int i = 0;
+  int j = 0;
+  unsigned char char_array_3[3];
+  unsigned char char_array_4[4];
 
+  while (in_len--) {
+    char_array_3[i++] = *(bytes_to_encode++);
+    if (i == 3) {
+      char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
+      char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
+      char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
+      char_array_4[3] = char_array_3[2] & 0x3f;
 
+      for(i = 0; (i <4) ; i++)
+        ret += base64_chars[char_array_4[i]];
+      i = 0;
+    }
+  }
+
+  if (i)
+  {
+    for(j = i; j < 3; j++)
+      char_array_3[j] = '\0';
+
+    char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
+    char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
+    char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
+    char_array_4[3] = char_array_3[2] & 0x3f;
+
+    for (j = 0; (j < i + 1); j++)
+      ret += base64_chars[char_array_4[j]];
+
+    while((i++ < 3))
+      ret += '=';
+
+  }
+
+  return ret;
+
+}
+/*
 template <unsigned int SIZE>
 string printvec_large(std::vector<bitset<SIZE> >& v,unsigned int upto)
 {
@@ -194,6 +239,40 @@ for(bitset<SIZE> b : v) {
 	}
 	ss << "</div>";
 	return ss.str();
+}
+*/
+
+template <unsigned int SIZE>
+string printvec_large(std::vector<bitset<SIZE> >& v,unsigned int upto,std::string name)
+{
+    int rows = v.size();
+    int cols = 8*ceil(std::min(upto,SIZE)/8.0f);
+    std::string buffer;
+    buffer = "";
+    buffer.reserve(rows*cols/8);
+    stringstream ss("");
+    ss << "<canvas height=\"" << rows << "\" width=\"" << cols << "\" id=\"" << name << "\"></canvas>";
+
+    char tobewritten = 0;
+    int  written_bit = 0;
+    for(int cur_row = 0; cur_row < rows; cur_row++){
+        for(int s = cols -1; s >= 0; --s) {
+            written_bit++;
+            tobewritten <<= 1;
+            if(v[cur_row][s]) {
+                tobewritten |= 1;
+            }
+            if(written_bit == 8){
+                written_bit = 0;
+                buffer.push_back(tobewritten);
+                tobewritten = 0;
+            }
+        }
+        assert(written_bit==0);
+    }
+        ss << "<script type=\"text/javascript\">writedata(\"" << name <<"\"," << rows << "," << cols <<" , \"" << base64_encode(buffer.data(),buffer.size()) << "\")</script>";
+
+    return ss.str();
 }
 
 template <int SIZE>
@@ -331,7 +410,7 @@ void DFGPrinter::doHTML(Module& M){
                 llvm::raw_string_ostream os (outp);
                 std::stringstream boxcont("");
                 std::stringstream fname("");
-                boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/></head><body><pre>";
+                boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/><script type=\"text/javascript\" src=\"../node.js\"></script></head><body><pre>";
                 llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
                 os << "I:<span>" << md->getAsString() << "</span>\n";
                 if(md->isAKeyOperation) {
@@ -395,15 +474,17 @@ void DFGPrinter::doHTML(Module& M){
                     boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
                 }
                 if(md->isAKeyOperation) {
-                    boxcont << "Keydep_Own:" << printbs_large<MAX_KEYBITS>(md->keydep_own) << "\nKeydep:" << printvec_large<MAX_KEYBITS>(md->keydep,cd.getMSBEverSet());
-                    boxcont << "Pre_Own:" << printbs_large<MAX_SUBBITS>(md->pre_own) << "\nPre:" << printvec_large<MAX_SUBBITS>(md->pre,cd.getMSBEverSet());
-                    boxcont << "\nPre_Keydep:" << printvec_large<MAX_KEYBITS>(md->pre_keydep,cd.getMSBEverSet());
-                    boxcont << "\nPost_Own:" << printbs_large<MAX_SUBBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_SUBBITS>(md->post,cd.getMSBEverSet());
-                    boxcont << "\nPost_Keydep:" << printvec_large<MAX_KEYBITS>(md->post_keydep,cd.getMSBEverSet());
-                    boxcont << "\nFA_OutHits:" << printvec_large<MAX_OUTBITS>(md->out_hit,cd.getMSBEverSet());
+                    boxcont << "Keydep_Own:" << printbs_large<MAX_KEYBITS>(md->keydep_own) << "\nKeydep:" << printvec_large<MAX_KEYBITS>(md->keydep,cd.getMSBEverSet(),"keydep");
+                    boxcont << "Pre_Own:" << printbs_large<MAX_SUBBITS>(md->pre_own) << "\nPre:" << printvec_large<MAX_SUBBITS>(md->pre,cd.getMSBEverSet(),"pre");
+                    boxcont << "\nPre_Keydep:" << printvec_large<MAX_KEYBITS>(md->pre_keydep,cd.getMSBEverSet(),"pre-keydep");
+                    boxcont << "\nPost_Own:" << printbs_large<MAX_SUBBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_SUBBITS>(md->post,cd.getMSBEverSet(),"post");
+                    boxcont << "\nPost_Keydep:" << printvec_large<MAX_KEYBITS>(md->post_keydep,cd.getMSBEverSet(),"post-keydep");
+                    boxcont << "\nFA_OutHits:" << printvec_large<MAX_OUTBITS>(md->out_hit,cd.getMSBEverSet(),"fa-outhits");
                     boxcont << "\nFA_keydeps: Brace yourself, 3D slices are coming.  min: " << md->faultkeybits_stats.min << " min_nz:" << md->faultkeybits_stats.min_nonzero << " max :"<< md->faultkeybits_stats.max << "\n";
                     for(int i = 0; i < md->fault_keys.size(); i++){
-                        boxcont << printvec_large<MAX_SUBBITS>(md->fault_keys[i],cd.getMSBEverSet()) << "\n ------ \n";
+                        stringstream ss;
+                        ss << "faultkeys-" << i;
+                        boxcont << printvec_large<MAX_SUBBITS>(md->fault_keys[i],cd.getMSBEverSet(), ss.str()) << "\n <hr/> \n";
 
                     }
                 }

@@ -86,6 +86,7 @@ namespace llvm
                 /*For fault analysis {*/
                 std::vector<std::bitset<MAX_OUTBITS> > out_hit;
                 std::bitset<MAX_OUTBITS> out_hit_own;
+                std::bitset<MAX_OUTBITS> fullsubkey_own;
                 std::vector<std::vector<std::bitset<MAX_SUBBITS> > > fault_keys;
                 /*      {  //Statistics for output  */
                             StatisticInfo outhit_stats;
@@ -118,6 +119,8 @@ namespace llvm
                     pre_own.reset();
                     post_own.reset();
                     keydep_own.reset();
+                    out_hit_own.reset();
+                    fullsubkey_own.reset();
                     hasToBeProtected_pre = false;
                     hasToBeProtected_post = false;
                     CiphertextHeight= 0xffffffff;
