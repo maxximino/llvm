@@ -93,6 +93,7 @@ namespace llvm
             void lookForMostVulnerableInstructionRepresentingTheEntireUserKey(list<pair<int,Instruction*> >& sorted,set<Instruction*>* most_vulnerable_instructions,bool NoCryptoFA::InstructionMetadata::* marker);
             void calcPost(llvm::Instruction* ptr);
             void calcOuthit(llvm::Instruction* ptr);
+            void calcFAKeyProp(llvm::Instruction* ptr);
             void calcPre(llvm::Instruction* ptr);
             void checkPost_masking(llvm::Instruction* ptr);
             void checkPre_masking(llvm::Instruction* ptr);

@@ -401,7 +401,11 @@ void DFGPrinter::doHTML(Module& M){
                     boxcont << "\nPost_Own:" << printbs_large<MAX_SUBBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_SUBBITS>(md->post,cd.getMSBEverSet());
                     boxcont << "\nPost_Keydep:" << printvec_large<MAX_KEYBITS>(md->post_keydep,cd.getMSBEverSet());
                     boxcont << "\nFA_OutHits:" << printvec_large<MAX_OUTBITS>(md->out_hit,cd.getMSBEverSet());
-                    boxcont << "\nFA_keydeps: eh no questa &grave; in 3d. min: " << md->faultkeybits_stats.min << " min_nz:" << md->faultkeybits_stats.min_nonzero << " max :"<< md->faultkeybits_stats.max;
+                    boxcont << "\nFA_keydeps: Brace yourself, 3D slices are coming.  min: " << md->faultkeybits_stats.min << " min_nz:" << md->faultkeybits_stats.min_nonzero << " max :"<< md->faultkeybits_stats.max << "\n";
+                    for(int i = 0; i < md->fault_keys.size(); i++){
+                        boxcont << printvec_large<MAX_SUBBITS>(md->fault_keys[i],cd.getMSBEverSet()) << "\n ------ \n";
+
+                    }
                 }
 
                 fname << md->NodeName << ".html";
