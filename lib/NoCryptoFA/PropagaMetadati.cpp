@@ -113,6 +113,7 @@ void PropagaMetadati::getAnalysisUsage(llvm::AnalysisUsage& AU) const
 	// any analysis and potentially invalidates all analysis. The default
 	// behaviour is to invalidate all analysis.
 	AU.addRequired<TaggedData>();
+    AU.setPreservesAll();
 }
 
 

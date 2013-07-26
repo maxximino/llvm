@@ -51,8 +51,10 @@ namespace llvm
             virtual void doHTML(Module& M);
             virtual void doDOT(Module& M);
 		private:
-			std::map<Instruction*, MyNodeType*> instrnodemap;
-			MyNodeType* rootptr;
+            std::map<Instruction*, MyNodeType*> instrnodemap;
+            MyNodeType* rootptr;
+            template <class AN>
+            AN& my_getAnalysis(Function* f);
 
 
 	};

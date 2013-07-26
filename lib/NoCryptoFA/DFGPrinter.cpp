@@ -256,7 +256,7 @@ string printvec_large(std::vector<bitset<SIZE> >& v,unsigned int upto,std::strin
     char tobewritten = 0;
     int  written_bit = 0;
     for(int cur_row = 0; cur_row < rows; cur_row++){
-        for(int s = cols -1; s >= 0; --s) {
+        for(int s = 0; s < cols; ++s) {
             written_bit++;
             tobewritten <<= 1;
             if(v[cur_row][s]) {
@@ -307,6 +307,19 @@ void outFile(std::string nodename, std::string contenuto)
 	ofstream out(fname.append(nodename));
 	out << contenuto;
 }
+template <class AN>
+AN& DFGPrinter::my_getAnalysis(Function* f){
+    static std::map<Function*,AN&> cache;
+    auto it = cache.find(f);
+    if(it == cache.end()){
+        AN& newone = getAnalysis<AN>(*f);
+        cache.insert(std::pair<Function*,AN&>(f,newone));
+        return newone;
+    }
+    else{
+        return it->second;
+    }
+}
 
 void DFGPrinter::doCSV(Module& M){
     for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
@@ -314,8 +327,8 @@ void DFGPrinter::doCSV(Module& M){
             FE = F->end();
             BB != FE;
             ++BB) {
-            CalcDFG& cd = getAnalysis<CalcDFG>(*F);
             TaggedData& td = getAnalysis<TaggedData>(*F);
+            CalcDFG& cd = my_getAnalysis<CalcDFG>(F);
             string instr_dump_str = string();
             instr_dump_str.reserve(200*1024*1024); //200M, yes, I hate having to re-alloc something. Even if it is transparent to the developer. I need to use those 16GB of RAM.
             llvm::raw_string_ostream instr_dump(instr_dump_str);
@@ -400,8 +413,8 @@ void DFGPrinter::doHTML(Module& M){
             FE = F->end();
             BB != FE;
             ++BB) {
-            CalcDFG& cd = getAnalysis<CalcDFG>(*F);
             TaggedData& td = getAnalysis<TaggedData>(*F);
+            CalcDFG& cd = my_getAnalysis<CalcDFG>(F);
             if(!td.functionMarked(&(*F))) { continue; }
             for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
                 if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
@@ -481,10 +494,10 @@ void DFGPrinter::doHTML(Module& M){
                     boxcont << "\nPost_Keydep:" << printvec_large<MAX_KEYBITS>(md->post_keydep,cd.getMSBEverSet(),"post-keydep");
                     boxcont << "\nFA_OutHits:" << printvec_large<MAX_OUTBITS>(md->out_hit,cd.getMSBEverSet(),"fa-outhits");
                     boxcont << "\nFA_keydeps: Brace yourself, 3D slices are coming.  min: " << md->faultkeybits_stats.min << " min_nz:" << md->faultkeybits_stats.min_nonzero << " max :"<< md->faultkeybits_stats.max << "\n";
-                    for(int i = 0; i < md->fault_keys.size(); i++){
+                    for(unsigned long i = 0; i < md->fault_keys.size(); i++){
                         stringstream ss;
                         ss << "faultkeys-" << i;
-                        boxcont << printvec_large<MAX_SUBBITS>(md->fault_keys[i],cd.getMSBEverSet(), ss.str()) << "\n <hr/> \n";
+                        boxcont << printvec_large<MAX_KMBITS>(md->fault_keys[i],cd.getMSBEverSet_Fault(), ss.str()) << "\n<hr/>\n";
 
                     }
                 }
@@ -509,8 +522,8 @@ void DFGPrinter::doDOT(Module& M){
             FE = F->end();
             BB != FE;
             ++BB) {
-            CalcDFG& cd = getAnalysis<CalcDFG>(*F);
             TaggedData& td = getAnalysis<TaggedData>(*F);
+            CalcDFG& cd = my_getAnalysis<CalcDFG>(F);
             if(!td.functionMarked(&(*F))) { continue; }
             for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
                 if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}

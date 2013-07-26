@@ -12,6 +12,7 @@
 #define MAX_VALBITS 64
 #define MAX_PROTECTION 999999
 #define MAX_OUTBITS (8*16)
+#define MAX_KMBITS (32*128) //serpent.
 using namespace std;
 using namespace llvm;
 
@@ -23,11 +24,11 @@ namespace llvm
 		struct InstructionMetadata;
 		extern std::map<llvm::Instruction*, llvm::NoCryptoFA::InstructionMetadata*> known;
 		struct StatisticInfo {
-			int max;
-			int min;
-			int min_nonzero;
-			int avg;
-			int avg_nonzero;
+            int max;
+            int min;
+            int min_nonzero;
+            int avg;
+            int avg_nonzero;
 			StatisticInfo() {
 				max = 0;
 				min = 0;
@@ -86,11 +87,12 @@ namespace llvm
                 /*For fault analysis {*/
                 std::vector<std::bitset<MAX_OUTBITS> > out_hit;
                 std::bitset<MAX_OUTBITS> out_hit_own;
-                std::bitset<MAX_OUTBITS> fullsubkey_own;
-                std::vector<std::vector<std::bitset<MAX_SUBBITS> > > fault_keys;
+                std::bitset<MAX_KMBITS> fullsubkey_own;
+                std::vector<std::vector<std::bitset<MAX_KMBITS> > > fault_keys;
                 /*      {  //Statistics for output  */
                             StatisticInfo outhit_stats;
                             StatisticInfo faultkeybits_stats;
+                            char faultkeybits_stats_calculated = false;
                 /*      } */
                 /* } */
                 InstructionMetadata(Instruction* ptr): keydep(0), keydep_own(0),pre(0),pre_keydep(0),pre_own(0), post(0),post_keydep(0), post_own(0), MaskedValues(0), keydep_stats(),pre_stats(),post_stats() {
@@ -133,10 +135,10 @@ namespace llvm
                     os << *my_instruction;
                     return representation;
                 }
-                int getMySecurityMargin_pre(){
+                unsigned int getMySecurityMargin_pre(){
                     return std::min(keydep_stats.min_nonzero,pre_stats.min_nonzero);
                 }
-                int getMySecurityMargin_post(){
+                unsigned int getMySecurityMargin_post(){
                     return std::min(keydep_stats.min_nonzero,post_stats.min_nonzero);
                 }
 

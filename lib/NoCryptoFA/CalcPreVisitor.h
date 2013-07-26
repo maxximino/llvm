@@ -127,7 +127,6 @@ class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, 
 			unsigned long mask = ci->getLimitedValue();
 			NoCryptoFA::InstructionMetadata* other = NoCryptoFA::known[i];
             auto size = (md->*DATA).size();
-#define is_bit_set(what,num) ((what) & (1<<(num)))
 			for(unsigned int i = 0; i < size; i++) {
 				if(is_bit_set(mask, i)) {
                     (md->*DATA)[size - 1 - i] = (other->*DATA)[size - 1 - i];

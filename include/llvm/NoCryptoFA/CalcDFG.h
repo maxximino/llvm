@@ -75,17 +75,20 @@ namespace llvm
             static unsigned int getOperandSize(llvm::Instruction* ptr);
             static unsigned int getOperandSize(llvm::Type* t);
             unsigned int getMSBEverSet();
+            unsigned int getMSBEverSet_Fault();
 		private:
 			// This is the information computed by the analysis.
 			std::map<llvm::Instruction*, std::bitset<MAX_KEYBITS> > instr_bs;
 			std::map<NoCryptoFA::KeyStartInfo, std::bitset<MAX_KEYBITS> > GEPs;
             unsigned int keyLatestPos;
             unsigned int MSBEverSet;
+            unsigned int MSBEverSet_Fault;
 			std::set<Function*> alreadyTransformed;
 			std::set<Instruction*> toBeVisited;
             std::set<Instruction*> cipherOutPoints;
             std::multimap<int,Instruction*> candidateVulnerablePointsCT;
             std::multimap<int,Instruction*> candidateVulnerablePointsPT;
+            std::set<Instruction*> allKeyMaterial;
             void runBatched(set<Instruction*> initialSet, std::function<bool(Instruction*,long batchn)> func );
             void calcKeydep(llvm::Instruction* ptr);
             void searchCipherOutPoints(llvm::Instruction* ptr);
@@ -99,9 +102,10 @@ namespace llvm
             void checkPre_masking(llvm::Instruction* ptr);
             void fillCiphertextHeight(llvm::Instruction* ptr,int batchn);
             template <int SIZE>
-            bitset<SIZE> getOutBitset(llvm::Instruction* ptr,unsigned int& latestPos);
+            bitset<SIZE> getOutBitset(llvm::Instruction* ptr,unsigned int& latestPos,std::string dbginfo);
 			bitset<MAX_KEYBITS> getOwnBitset(llvm::Instruction* ptr);
-            vector<bitset<MAX_KEYBITS> > assignKeyOwn(set<Instruction*> instructions,bitset<MAX_SUBBITS> NoCryptoFA::InstructionMetadata::*OWN);
+            template <int SIZE>
+            vector<bitset<MAX_KEYBITS> > assignKeyOwn(set<Instruction*> instructions,bitset<SIZE> NoCryptoFA::InstructionMetadata::*OWN,unsigned int* msb,std::string dbginfo);
             void reverseSubkeyDependency(Instruction* p,const vector<bitset<MAX_KEYBITS> >& subkeytokey,std::vector<bitset<MAX_SUBBITS> > NoCryptoFA::InstructionMetadata::*SUBKEY,std::vector<bitset<MAX_KEYBITS> > NoCryptoFA::InstructionMetadata::*KEYDEP_OUT );
 
 
