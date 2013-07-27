@@ -29,8 +29,9 @@ class CalcFAVisitor : public InstVisitor<CalcFAVisitor>
         NoCryptoFA::InstructionMetadata* usemd;
         void visitInstruction(Instruction& inst) {
             unsigned long size = std::min(md->fault_keys.size(), usemd->fault_keys.size());
+            unsigned long outbits = md->fault_keys[0].size(); //performance opt.
             for(unsigned long i = 0; i < size; i++) {
-                for(unsigned long j = 0; j < md->fault_keys[i].size(); j++){
+                for(unsigned long j = 0; j < outbits; j++){
                     md->fault_keys[i][j] |= usemd->fault_keys[i][j];
                 }
             }
@@ -39,8 +40,7 @@ class CalcFAVisitor : public InstVisitor<CalcFAVisitor>
             int delta = md->fault_keys.size() - usemd->fault_keys.size();
             for(unsigned int i = 0; i < usemd->fault_keys.size(); i++) {
                 for(unsigned long j = 0; j < md->fault_keys[i].size(); j++){
-  //                  md->fault_keys[delta + i][j] |= usemd->fault_keys[i][j];
-                    md->fault_keys[i][j] |= usemd->fault_keys[i][j];
+                    md->fault_keys[delta + i][j] |= usemd->fault_keys[i][j];
 
                 }
             }
@@ -49,8 +49,7 @@ class CalcFAVisitor : public InstVisitor<CalcFAVisitor>
             int delta = usemd->fault_keys.size() - md->fault_keys.size();
             for(unsigned int i = 0; i < md->fault_keys.size(); i++) {
                 for(unsigned long j = 0; j < md->fault_keys[i].size(); j++){
-                    //md->fault_keys[i][j] |= usemd->fault_keys[delta + i][j];
-                    md->fault_keys[i][j] |= usemd->fault_keys[i][j];
+                    md->fault_keys[i][j] |= usemd->fault_keys[delta + i][j];
                 }
             }
         }
@@ -67,7 +66,7 @@ class CalcFAVisitor : public InstVisitor<CalcFAVisitor>
                 idx = ci->getLimitedValue();
             }
             vector<vector<bitset<MAX_KMBITS> > > toadd = usemd->fault_keys;
-            ShiftKeyBitset<MAX_KMBITS>((direction ? 0 : 1), idx, toadd); //Invert direction.
+            ShiftKeyBitset<MAX_KMBITS>((direction?0:1), idx, toadd); // Invert direction.
             for(unsigned int i = 0; i < md->fault_keys.size(); i++) {
                 for(unsigned long j = 0; j < md->fault_keys[i].size(); j++){
                     md->fault_keys[i][j] |= toadd[i][j];
@@ -93,10 +92,9 @@ class CalcFAVisitor : public InstVisitor<CalcFAVisitor>
                 return;
             }
             unsigned long mask = ci->getLimitedValue();
-            cerr << "Mask is " << mask << endl;
             auto size = md->fault_keys.size();
             for(unsigned long i = 0; i < size; i++) {
-                if(is_bit_set(mask, i)) {
+                if(is_bit_set(mask, size-1-i)) {
                     for(unsigned long j = 0; j < md->fault_keys[i].size(); j++){
                         md->fault_keys[i][j] |= usemd->fault_keys[i][j];
                     }
@@ -110,7 +108,7 @@ class CalcFAVisitor : public InstVisitor<CalcFAVisitor>
                 for(unsigned long databit = 0; databit < usemd->fault_keys.size(); databit++){
                     tmp |= usemd->fault_keys[databit][outputbit];
                 }
-                for(unsigned long databit = 0; databit < usemd->fault_keys.size(); databit++){
+                for(unsigned long databit = 0; databit < md->fault_keys.size(); databit++){
                     md->fault_keys[databit][outputbit] |= tmp;
                 }
             }

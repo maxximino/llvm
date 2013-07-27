@@ -337,7 +337,7 @@ void DFGPrinter::doCSV(Module& M){
             instr_dump << "Min_MinNZ;Plaintext;PTHeight;CTHeight;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
             // parte per output dettagliato
             instr_dump << "IsAKeyOp;IsAKeyStart;PreKeyStart;SubKey;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;ValueSize;keydep_own.count;";
-            instr_dump << "KD_Max;KD_Min;KD_MinNZ;KD_Avg;KD_AvgNZ;FOH_min;FOH_minnz;FOH_max;FK_min;FK_minnz;FK_max";
+            instr_dump << "KD_Max;KD_Min;KD_MinNZ;KD_Avg;KD_AvgNZ;FK_min;FOH_of_fk_min";
             instr_dump << "pre;pre_own;post;post_own;";
             // fine parte per output dettagliato
             instr_dump << "\"Full instruction\"\n";
@@ -386,12 +386,8 @@ void DFGPrinter::doCSV(Module& M){
                 instr_dump << md->keydep_stats.min_nonzero << ";";
                 instr_dump << md->keydep_stats.avg << ";";
                 instr_dump << md->keydep_stats.avg_nonzero << ";";
-                instr_dump << md->outhit_stats.min << ";";
-                instr_dump << md->outhit_stats.min_nonzero << ";";
-                instr_dump << md->outhit_stats.max << ";";
-                instr_dump << md->faultkeybits_stats.min << ";";
-                instr_dump << md->faultkeybits_stats.min_nonzero << ";";
-                instr_dump << md->faultkeybits_stats.max << ";";
+                instr_dump << md->faultable_stats.min_keylen_nz << ";";
+                instr_dump << md->faultable_stats.hw_outhit_of_min_keylen_nz << ";";
 
                 /* Keep the code here, it might get useful in a far future... actually, it's not worth the time and filesize increase.
                 instr_dump << print_syntethic<MAX_SUBBITS>(md->pre) << ";";
@@ -407,7 +403,100 @@ void DFGPrinter::doCSV(Module& M){
     }
 
 }
+bool doHTML_instruction(Instruction* i, CalcDFG* cd){
+    std::string outp;
+    outp.reserve(200*1024); //200k. Smaller :)
+    llvm::raw_string_ostream os (outp);
+    std::stringstream boxcont("");
+    std::stringstream fname("");
+    boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/><script type=\"text/javascript\" src=\"../node.js\"></script></head><body><pre>";
+    llvm::NoCryptoFA::InstructionMetadata* md = cd->getMD(i);
+    os << "I:<span>" << md->getAsString() << "</span>\n";
+    if(md->isAKeyOperation) {
+        if(md->isAKeyStart) {
+            os << "KeyStart" << "\n";
+        }
+        os << "<Own:" << printbs_small<MAX_SUBBITS>(md->pre_own) << ",Pre:" << printvec_small<MAX_SUBBITS>(md->pre) << ",Post_Own:" << printbs_small<MAX_SUBBITS>(md->post_own) << ",Post:" << printvec_small<MAX_SUBBITS>(md->post) << ">" << "\n";
+    }
+    boxcont << os.str() << "\n";
+    if(md->isSubKey)  boxcont << "SubKey\n";
+    if(md->isVulnerableTopSubKey)  boxcont << "VulnTop\n";
+    if(md->isVulnerableBottomSubKey)  boxcont << "VulnBottom\n";
+
+    if(md->post_FirstToMeetKey) {
+        boxcont << "Primo ad incontrare la chiave backwards\n";
+    }
+    if(md->hasMetPlaintext) {
+        boxcont << "Ha incontrato il plaintext (" << md->PlaintextHeight << ")\n";
+        boxcont << "Influenzer&agrave; ciphertext (" << md->CiphertextHeight << ")\n";
+    } else {
+        boxcont << "Non ha incontrato il plaintext\n";
+    }
+    switch(md->origin) {
+        case NoCryptoFA::InstructionMetadata::AND_MASKED:
+            boxcont << "Origine istruzione: Mascheratura di un AND\n";
+            break;
+        case NoCryptoFA::InstructionMetadata::CREATE_MASK:
+            boxcont << "Origine istruzione: Inserimento maschera\n";
+            break;
+        case NoCryptoFA::InstructionMetadata::SHIFT_MASKED:
+            boxcont << "Origine istruzione: Mascheratura di uno shift\n";
+            break;
+        case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
+            boxcont << "Origine istruzione: Programma originale\n";
+            break;
+        case NoCryptoFA::InstructionMetadata::REMOVE_MASK:
+            boxcont << "Origine istruzione: Rimozione maschera\n";
+            break;
+        case NoCryptoFA::InstructionMetadata::XOR_MASKED:
+            boxcont << "Origine istruzione: Mascheratura di uno XOR\n";
+            break;
+        case NoCryptoFA::InstructionMetadata::OR_MASKED:
+            boxcont << "Origine istruzione: Mascheratura di un OR\n";
+            break;
+        case NoCryptoFA::InstructionMetadata::CAST_MASKED:
+            boxcont << "Origine istruzione: Mascheratura di un CAST\n";
+            break;
+        case NoCryptoFA::InstructionMetadata::SBOX_MASKED:
+            boxcont << "Origine istruzione: Mascheratura di un lookup ad una SBOX\n";
+            break;
+        case NoCryptoFA::InstructionMetadata::SELECT_MASKED:
+            boxcont << "Origine istruzione: Mascheratura di una SELECT\n";
+            break;
+        case NoCryptoFA::InstructionMetadata::MASKED_FUNCTION:
+            boxcont << "Origine istruzione: Mascheratura di funzione intera\n";
+            break;
+    }
+
+    boxcont << "Value size:" << md->pre.size() << "\n";
+    if(!i->getDebugLoc().isUnknown()) {
+        boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
+    }
+    if(md->isAKeyOperation) {
+        boxcont << "Keydep_Own:" << printbs_large<MAX_KEYBITS>(md->keydep_own) << "\nKeydep:" << printvec_large<MAX_KEYBITS>(md->keydep,cd->getMSBEverSet(),"keydep");
+        boxcont << "Pre_Own:" << printbs_large<MAX_SUBBITS>(md->pre_own) << "\nPre:" << printvec_large<MAX_SUBBITS>(md->pre,cd->getMSBEverSet(),"pre");
+        boxcont << "\nPre_Keydep:" << printvec_large<MAX_KEYBITS>(md->pre_keydep,cd->getMSBEverSet(),"pre-keydep");
+        boxcont << "\nPost_Own:" << printbs_large<MAX_SUBBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_SUBBITS>(md->post,cd->getMSBEverSet(),"post");
+        boxcont << "\nPost_Keydep:" << printvec_large<MAX_KEYBITS>(md->post_keydep,cd->getMSBEverSet(),"post-keydep");
+        boxcont << "\nFA_OutHits:" << printvec_large<MAX_OUTBITS>(md->out_hit,cd->getMSBEverSet(),"fa-outhits");
+        boxcont << "\nFA_keydeps: Brace yourself, 3D slices are coming. min_nz:" << md->faultable_stats.min_keylen_nz << " oh :"<< md->faultable_stats.hw_outhit_of_min_keylen_nz << "\n";
+        for(unsigned long i = 0; i < md->fault_keys.size(); i++){
+            stringstream ss;
+            ss << "faultkeys-" << i;
+            boxcont << printvec_large<MAX_KMBITS>(md->fault_keys[i],cd->getMSBEverSet_Fault(), ss.str()) << "\n<hr/>\n";
+
+        }
+    }
+
+    fname << md->NodeName << ".html";
+    boxcont << "</pre></body></html>";
+    outFile(fname.str(), boxcont.str());
+    return true;
+}
+#include <future>
+
 void DFGPrinter::doHTML(Module& M){
+    list<future<bool> > operations;
     for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
         for(llvm::Function::iterator BB = F->begin(),
             FE = F->end();
@@ -418,96 +507,13 @@ void DFGPrinter::doHTML(Module& M){
             if(!td.functionMarked(&(*F))) { continue; }
             for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
                 if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
-                std::string outp;
-                outp.reserve(200*1024); //200k. Smaller :)
-                llvm::raw_string_ostream os (outp);
-                std::stringstream boxcont("");
-                std::stringstream fname("");
-                boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/><script type=\"text/javascript\" src=\"../node.js\"></script></head><body><pre>";
-                llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
-                os << "I:<span>" << md->getAsString() << "</span>\n";
-                if(md->isAKeyOperation) {
-                    if(md->isAKeyStart) {
-                        os << "KeyStart" << "\n";
-                    }
-                    os << "<Own:" << printbs_small<MAX_SUBBITS>(md->pre_own) << ",Pre:" << printvec_small<MAX_SUBBITS>(md->pre) << ",Post_Own:" << printbs_small<MAX_SUBBITS>(md->post_own) << ",Post:" << printvec_small<MAX_SUBBITS>(md->post) << ">" << "\n";
-                }
-                boxcont << os.str() << "\n";
-                if(md->isSubKey)  boxcont << "SubKey\n";
-                if(md->isVulnerableTopSubKey)  boxcont << "VulnTop\n";
-                if(md->isVulnerableBottomSubKey)  boxcont << "VulnBottom\n";
-
-                if(md->post_FirstToMeetKey) {
-                    boxcont << "Primo ad incontrare la chiave backwards\n";
-                }
-                if(md->hasMetPlaintext) {
-                    boxcont << "Ha incontrato il plaintext (" << md->PlaintextHeight << ")\n";
-                    boxcont << "Influenzer&agrave; ciphertext (" << md->CiphertextHeight << ")\n";
-                } else {
-                    boxcont << "Non ha incontrato il plaintext\n";
-                }
-                switch(md->origin) {
-                    case NoCryptoFA::InstructionMetadata::AND_MASKED:
-                        boxcont << "Origine istruzione: Mascheratura di un AND\n";
-                        break;
-                    case NoCryptoFA::InstructionMetadata::CREATE_MASK:
-                        boxcont << "Origine istruzione: Inserimento maschera\n";
-                        break;
-                    case NoCryptoFA::InstructionMetadata::SHIFT_MASKED:
-                        boxcont << "Origine istruzione: Mascheratura di uno shift\n";
-                        break;
-                    case NoCryptoFA::InstructionMetadata::ORIGINAL_PROGRAM:
-                        boxcont << "Origine istruzione: Programma originale\n";
-                        break;
-                    case NoCryptoFA::InstructionMetadata::REMOVE_MASK:
-                        boxcont << "Origine istruzione: Rimozione maschera\n";
-                        break;
-                    case NoCryptoFA::InstructionMetadata::XOR_MASKED:
-                        boxcont << "Origine istruzione: Mascheratura di uno XOR\n";
-                        break;
-                    case NoCryptoFA::InstructionMetadata::OR_MASKED:
-                        boxcont << "Origine istruzione: Mascheratura di un OR\n";
-                        break;
-                    case NoCryptoFA::InstructionMetadata::CAST_MASKED:
-                        boxcont << "Origine istruzione: Mascheratura di un CAST\n";
-                        break;
-                    case NoCryptoFA::InstructionMetadata::SBOX_MASKED:
-                        boxcont << "Origine istruzione: Mascheratura di un lookup ad una SBOX\n";
-                        break;
-                    case NoCryptoFA::InstructionMetadata::SELECT_MASKED:
-                        boxcont << "Origine istruzione: Mascheratura di una SELECT\n";
-                        break;
-                    case NoCryptoFA::InstructionMetadata::MASKED_FUNCTION:
-                        boxcont << "Origine istruzione: Mascheratura di funzione intera\n";
-                        break;
-                }
-
-                boxcont << "Value size:" << md->pre.size() << "\n";
-                if(!i->getDebugLoc().isUnknown()) {
-                    boxcont << "Nel sorgente a riga:" << i->getDebugLoc().getLine() << " colonna:" << i->getDebugLoc().getCol()  << "\n";
-                }
-                if(md->isAKeyOperation) {
-                    boxcont << "Keydep_Own:" << printbs_large<MAX_KEYBITS>(md->keydep_own) << "\nKeydep:" << printvec_large<MAX_KEYBITS>(md->keydep,cd.getMSBEverSet(),"keydep");
-                    boxcont << "Pre_Own:" << printbs_large<MAX_SUBBITS>(md->pre_own) << "\nPre:" << printvec_large<MAX_SUBBITS>(md->pre,cd.getMSBEverSet(),"pre");
-                    boxcont << "\nPre_Keydep:" << printvec_large<MAX_KEYBITS>(md->pre_keydep,cd.getMSBEverSet(),"pre-keydep");
-                    boxcont << "\nPost_Own:" << printbs_large<MAX_SUBBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_SUBBITS>(md->post,cd.getMSBEverSet(),"post");
-                    boxcont << "\nPost_Keydep:" << printvec_large<MAX_KEYBITS>(md->post_keydep,cd.getMSBEverSet(),"post-keydep");
-                    boxcont << "\nFA_OutHits:" << printvec_large<MAX_OUTBITS>(md->out_hit,cd.getMSBEverSet(),"fa-outhits");
-                    boxcont << "\nFA_keydeps: Brace yourself, 3D slices are coming.  min: " << md->faultkeybits_stats.min << " min_nz:" << md->faultkeybits_stats.min_nonzero << " max :"<< md->faultkeybits_stats.max << "\n";
-                    for(unsigned long i = 0; i < md->fault_keys.size(); i++){
-                        stringstream ss;
-                        ss << "faultkeys-" << i;
-                        boxcont << printvec_large<MAX_KMBITS>(md->fault_keys[i],cd.getMSBEverSet_Fault(), ss.str()) << "\n<hr/>\n";
-
-                    }
-                }
-
-                fname << md->NodeName << ".html";
-                boxcont << "</pre></body></html>";
-                outFile(fname.str(), boxcont.str());
-        }
+               operations.push_front(async(launch::async,doHTML_instruction,i,&cd));
+             }
     }
   }
+    for(future<bool> &v : operations){
+        v.get();
+    }
 }
 void DFGPrinter::doDOT(Module& M){
     MyNodeType* cur;

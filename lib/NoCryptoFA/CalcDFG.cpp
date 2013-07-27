@@ -98,45 +98,37 @@ void calcStatistics_singlevect(llvm::NoCryptoFA::StatisticInfo& stat, vector<bit
 /*
 As the structure that holds data for each instruction, about each bit and the key bit that it meets till the output
 is a three-dimensional structure (DATA BIT, OUTPUT BIT, KEY BIT) => 0/1
-I define the min/max/avg as:
-min = min[for each data bit]( min[for each output bit](key bits at 1)) <--- the minimum protection order
-max = hw(or[for each data bit]( or[for each output bit](key bits at 1))) <--- all the bits that you can get info about by faulting the instruction
-avg =  Not defined, always 0.
+min_keylen_nz = min[for each data bit]( min[for each output bit](key bits at 1)) <--- the minimum protection order
+outhit_of_min_keylen =  smallest outhit among the bits at min_keylen == min_keylen_nz as defined above.
 Excluding any non-meaningful output bit by using out_hit information.
 */
-void calcStatistics_faultkeybits(llvm::NoCryptoFA::StatisticInfo& stat, vector<vector<bitset<MAX_KMBITS> > >& databits, vector<bitset<MAX_OUTBITS>>& out_hit)
+void calcStatistics_faultkeybits(llvm::NoCryptoFA::InstructionMetadata* md)
 {
-    int cnt;
-    int cnt_min;
-    int cnt_min_nz;
-    stat.min = MAX_PROTECTION;
-    stat.min_nonzero = MAX_PROTECTION;
-    bitset<MAX_KMBITS> max_bs;
-    max_bs.reset();
-    assert(databits.size() == out_hit.size());
-    for(unsigned long i = 0;i<databits.size();i++) {
-        assert(databits[i].size() == MAX_OUTBITS);
-        cnt_min=MAX_PROTECTION;
-        cnt_min_nz = MAX_PROTECTION;
-        for(unsigned long j = 0;j<databits[i].size();j++) {
-            if(out_hit[i][j] == 0) continue;
-            cnt=databits[i][j].count();
-            cnt_min=std::min(cnt,cnt_min);
+    int cnt,ohcnt;
+    md->faultable_stats.min_keylen_nz = MAX_PROTECTION;
+    assert(md->fault_keys.size() == md->out_hit.size());
+    for(unsigned long i = 0;i<md->fault_keys.size();i++) {
+        assert(md->fault_keys[i].size() == MAX_OUTBITS);
+        for(unsigned long j = 0, max=md->fault_keys[i].size();j<max;j++) {
+            if(md->out_hit[i][j] == 0) continue;
+            cnt=md->fault_keys[i][j].count();
             if(cnt > 0){
-                cnt_min_nz=std::min(cnt,cnt_min_nz);
+                if(md->faultable_stats.min_keylen_nz > cnt){
+                    md->faultable_stats.min_keylen_nz = cnt;
+                    md->faultable_stats.outhit_of_min_keylen_nz = md->out_hit[i];
+                    md->faultable_stats.hw_outhit_of_min_keylen_nz = md->out_hit[i].count();
+                }else if(md->faultable_stats.min_keylen_nz == cnt){
+                    ohcnt = md->out_hit[i].count();
+                    if(md->faultable_stats.hw_outhit_of_min_keylen_nz > ohcnt){
+                        md->faultable_stats.outhit_of_min_keylen_nz = md->out_hit[i];
+                        md->faultable_stats.hw_outhit_of_min_keylen_nz = ohcnt;
+                    }
+                }
             }
         }
-        stat.min = std::min(stat.min,cnt_min);
-        stat.min_nonzero = std::min(stat.min_nonzero,cnt_min_nz);
-        for(unsigned long j = 0; j < databits[i].size(); j++){
-             if(out_hit[i][j] == 0) continue;
-             max_bs |= databits[i][j];
-        }
     }
-    stat.max=max_bs.count();
-    stat.avg=0;
-    stat.avg_nonzero=0;
-    if(stat.min == 0 && stat.min_nonzero==MAX_PROTECTION) {stat.min_nonzero=0;}
+
+    if( md->faultable_stats.min_keylen_nz==MAX_PROTECTION) {md->faultable_stats.min_keylen_nz=0;}
 }
 
 CalcDFG* llvm::createCalcDFGPass()
@@ -327,7 +319,7 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
     /*calcolo statistiche*/
     runBatched(cipherOutPoints, [this](Instruction * p,long batchn)->bool {
                 llvm::NoCryptoFA::InstructionMetadata* md = getMD(p);
-                md->faultkeybits_stats_calculated = false;
+                md->faultable_stats.calculated = false;
                 for(llvm::Instruction::op_iterator it = p->op_begin(); it != p->op_end(); ++it) {
                     if(Instruction* _it = dyn_cast<Instruction>(*it)) {
                         toBeVisited.insert(_it);
@@ -337,14 +329,13 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
     });
     runBatched(cipherOutPoints, [this](Instruction * p,long batchn)->bool {
                 llvm::NoCryptoFA::InstructionMetadata* md = getMD(p);
-                if(md->faultkeybits_stats_calculated == false){
-                    calcStatistics_singlevect<MAX_OUTBITS>(md->outhit_stats,md->out_hit);
-                    calcStatistics_faultkeybits(md->faultkeybits_stats,md->fault_keys,md->out_hit);
-                    md->faultkeybits_stats_calculated = true;
-                }
-                for(llvm::Instruction::op_iterator it = p->op_begin(); it != p->op_end(); ++it) {
-                    if(Instruction* _it = dyn_cast<Instruction>(*it)) {
-                        toBeVisited.insert(_it);
+                if(md->faultable_stats.calculated == false){
+                    calcStatistics_faultkeybits(md);
+                    md->faultable_stats.calculated = true;
+                    for(llvm::Instruction::op_iterator it = p->op_begin(); it != p->op_end(); ++it) {
+                        if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                            toBeVisited.insert(_it);
+                        }
                     }
                 }
                 return false;
@@ -631,7 +622,7 @@ void CalcDFG::calcFAKeyProp(Instruction* ptr)
         }
     }
     /*repeat information on all out_hit bytes on the real structure*/
-    for(unsigned long i = 0; i < data_key.size(); i++){
+    for(unsigned long i = 0, max=  data_key.size(); i < max; i++){
         for(unsigned long j = 0; j < md->fault_keys[i].size(); j++){
             if(md->out_hit[i][j]) md->fault_keys[i][j] = data_key[i];
             else md->fault_keys[i][j].reset();
