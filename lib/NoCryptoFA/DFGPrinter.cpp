@@ -479,6 +479,7 @@ bool doHTML_instruction(Instruction* i, CalcDFG* cd){
         boxcont << "\nPost_Own:" << printbs_large<MAX_SUBBITS>(md->post_own) << "\nPost:" << printvec_large<MAX_SUBBITS>(md->post,cd->getMSBEverSet(),"post");
         boxcont << "\nPost_Keydep:" << printvec_large<MAX_KEYBITS>(md->post_keydep,cd->getMSBEverSet(),"post-keydep");
         boxcont << "\nFA_OutHits:" << printvec_large<MAX_OUTBITS>(md->out_hit,cd->getMSBEverSet(),"fa-outhits");
+        boxcont << "\nFA_Key_Own:" << printbs_large<MAX_KMBITS>(md->fullsubkey_own);
         boxcont << "\nFA_keydeps: Brace yourself, 3D slices are coming. min_nz:" << md->faultable_stats.min_keylen_nz << " oh :"<< md->faultable_stats.hw_outhit_of_min_keylen_nz << "\n";
         for(unsigned long i = 0; i < md->fault_keys.size(); i++){
             stringstream ss;

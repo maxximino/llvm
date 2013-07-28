@@ -315,12 +315,11 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
         md->out_hit_own = getOutBitset<MAX_OUTBITS>(co,lp,"out_hits");
     }
     runBatched(cipherOutValues, [this](Instruction * p,long batchn)->bool { calcOuthit(p); return false;});
-    runBatched_parallel(cipherOutValues, [this](Instruction * p,long batchn)->void { calcFAKeyProp(p);});
 
-    /*calcolo statistiche*/
     runBatched(cipherOutPoints, [this](Instruction * p,long batchn)->bool {
                 llvm::NoCryptoFA::InstructionMetadata* md = getMD(p);
                 md->faultable_stats.calculated = false;
+                md->fault_keys_calculated = false;
                 for(llvm::Instruction::op_iterator it = p->op_begin(); it != p->op_end(); ++it) {
                     if(Instruction* _it = dyn_cast<Instruction>(*it)) {
                         toBeVisited.insert(_it);
@@ -328,6 +327,8 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
                 }
                 return false;
     });
+    runBatched_parallel(cipherOutValues, [this](Instruction * p,long batchn)->void { calcFAKeyProp(p);});
+
     runBatched(cipherOutPoints, [this](Instruction * p,long batchn)->bool {
                 llvm::NoCryptoFA::InstructionMetadata* md = getMD(p);
                 if(md->faultable_stats.calculated == false){
@@ -633,10 +634,13 @@ void CalcDFG::calcFAKeyProp(Instruction* ptr)
     for(vector<bitset<MAX_KMBITS> > &v: md->fault_keys)  ClearMatrix<MAX_KMBITS>(v);
 
     vector<bitset<MAX_KMBITS> > data_key = vector<bitset<MAX_KMBITS> >(getOperandSize(ptr),bitset<MAX_KMBITS>(0));
+    bool firstToMeetKey = false;
     for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
         if(Instruction* _it = dyn_cast<Instruction>(*it)) {
             NoCryptoFA::InstructionMetadata* opmd = NoCryptoFA::known[_it];
             if(opmd->fullsubkey_own.count() > 0) {
+   //             errs() << "fsk_own.count() > 0 on " << *_it << "while calculating for "<< *ptr << "\n";
+                firstToMeetKey = true;
                 setDiagonal<MAX_KMBITS>(data_key,opmd->fullsubkey_own);
             }
         }
@@ -665,7 +669,8 @@ void CalcDFG::calcFAKeyProp(Instruction* ptr)
         if(!areVectorOfBitsetEqual<MAX_KMBITS>(oldFK[i], md->fault_keys[i])) { changed = true; break;}
     }
     md->lock.unlock();
-    if(changed) {
+    if(changed || !md->fault_keys_calculated) {
+        md->fault_keys_calculated=true;
         toBeVisited_mutex.lock();
         for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
             if(Instruction* _it = dyn_cast<Instruction>(*it)) {

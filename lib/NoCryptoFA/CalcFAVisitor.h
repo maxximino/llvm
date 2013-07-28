@@ -41,7 +41,6 @@ class CalcFAVisitor : public InstVisitor<CalcFAVisitor>
             for(unsigned int i = 0; i < usemd->fault_keys.size(); i++) {
                 for(unsigned long j = 0; j < md->fault_keys[i].size(); j++){
                     md->fault_keys[delta + i][j] |= usemd->fault_keys[i][j];
-
                 }
             }
         }

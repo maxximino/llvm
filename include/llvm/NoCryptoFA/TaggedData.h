@@ -61,6 +61,7 @@ namespace llvm
 				bool isSbox;
 				bool hasToBeProtected_pre;
 				bool hasToBeProtected_post;
+                bool fault_keys_calculated;
 				bool post_FirstToMeetKey;
 				bool hasBeenMasked;
 				bool hasMetPlaintext;
