@@ -57,7 +57,7 @@ namespace llvm
 		public:
 			static char ID;
 			CalcDFG() : llvm::FunctionPass(ID) { }
-			CalcDFG(const CalcDFG& fp) : llvm::FunctionPass(fp.ID) {
+            CalcDFG(const CalcDFG& fp) : llvm::FunctionPass(fp.ID),toBeVisited_mutex() {
 				initializeCalcDFGPass(*PassRegistry::getPassRegistry());
 			}
 
@@ -85,11 +85,13 @@ namespace llvm
             unsigned int MSBEverSet_Fault;
 			std::set<Function*> alreadyTransformed;
 			std::set<Instruction*> toBeVisited;
+            std::mutex toBeVisited_mutex;
             std::set<Instruction*> cipherOutPoints;
             std::multimap<int,Instruction*> candidateVulnerablePointsCT;
             std::multimap<int,Instruction*> candidateVulnerablePointsPT;
             std::set<Instruction*> allKeyMaterial;
             void runBatched(set<Instruction*> initialSet, std::function<bool(Instruction*,long batchn)> func );
+            void runBatched_parallel(set<Instruction*> initialSet, std::function<void(Instruction*,long batchn)> func );
             void calcKeydep(llvm::Instruction* ptr);
             void searchCipherOutPoints(llvm::Instruction* ptr);
             //bool lookForBackwardsKeyPoints(llvm::Instruction* ptr);

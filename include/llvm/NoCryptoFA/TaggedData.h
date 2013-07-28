@@ -7,12 +7,13 @@
 #include <set>
 #include <bitset>
 #include <array>
+#include <mutex>
 #define MAX_KEYBITS 256
 #define MAX_SUBBITS 512
 #define MAX_VALBITS 64
 #define MAX_PROTECTION 999999
 #define MAX_OUTBITS (8*16)
-#define MAX_KMBITS (32*128) //serpent.
+#define MAX_KMBITS (34*128) //serpent.
 using namespace std;
 using namespace llvm;
 
@@ -51,6 +52,7 @@ namespace llvm
 				    REMOVE_MASK,
 				    MASKED_FUNCTION
 				};
+                mutex lock;
 				bool isAKeyOperation;
 				bool isAKeyStart;
                 bool isVulnerableTopSubKey;
@@ -98,7 +100,7 @@ namespace llvm
                             } faultable_stats;
                 /*      } */
                 /* } */
-                InstructionMetadata(Instruction* ptr): keydep(0), keydep_own(0),pre(0),pre_keydep(0),pre_own(0), post(0),post_keydep(0), post_own(0), MaskedValues(0), keydep_stats(),pre_stats(),post_stats() {
+                InstructionMetadata(Instruction* ptr): lock(),keydep(0), keydep_own(0),pre(0),pre_keydep(0),pre_own(0), post(0),post_keydep(0), post_own(0), MaskedValues(0), keydep_stats(),pre_stats(),post_stats() {
 					init();
 					my_instruction = ptr;
 					known[ptr] = this;

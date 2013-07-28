@@ -9,6 +9,7 @@
 #include <set>
 #include <list>
 #include <iostream>
+#include <future>
 #include <unistd.h>
 #include <sys/time.h>
 #include "llvm/Support/CommandLine.h"
@@ -314,7 +315,7 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
         md->out_hit_own = getOutBitset<MAX_OUTBITS>(co,lp,"out_hits");
     }
     runBatched(cipherOutValues, [this](Instruction * p,long batchn)->bool { calcOuthit(p); return false;});
-    runBatched(cipherOutValues, [this](Instruction * p,long batchn)->bool { calcFAKeyProp(p); return false;});
+    runBatched_parallel(cipherOutValues, [this](Instruction * p,long batchn)->void { calcFAKeyProp(p);});
 
     /*calcolo statistiche*/
     runBatched(cipherOutPoints, [this](Instruction * p,long batchn)->bool {
@@ -464,7 +465,25 @@ void CalcDFG::lookForMostVulnerableInstructionRepresentingTheEntireUserKey(list<
   } // End of foreach(Instruction v in sorted)
   doubts.clear();
 }
-
+void CalcDFG::runBatched_parallel(set<Instruction*> initialSet, std::function<void (Instruction*,long batchn)> func)
+{
+    bool stopIterations = false;
+    toBeVisited = initialSet;
+    long counter = 0;
+    list<future<void> > operations;
+    while((toBeVisited.size() > 0) && !stopIterations) {
+        std::set<Instruction*> thisVisit = set<Instruction*>(toBeVisited);
+        toBeVisited.clear();
+        operations.clear();
+        for(Instruction * p : thisVisit) {
+            operations.push_front(async(launch::async,func,p,counter));
+        }
+        for(future<void> &f : operations) {
+            f.get();
+        }
+        counter++;
+    }
+}
 void CalcDFG::runBatched(set<Instruction*> initialSet, std::function<bool (Instruction*,long batchn)> func)
 {
 	bool stopIterations = false;
@@ -608,6 +627,7 @@ void CalcDFG::calcFAKeyProp(Instruction* ptr)
 {
     NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[ptr];
     if(!md->isAKeyOperation) {return;}
+    md->lock.lock();
     bool changed = false;
     vector<vector<bitset<MAX_KMBITS> > > oldFK = md->fault_keys; //This should be deep copy.
     for(vector<bitset<MAX_KMBITS> > &v: md->fault_keys)  ClearMatrix<MAX_KMBITS>(v);
@@ -632,21 +652,27 @@ void CalcDFG::calcFAKeyProp(Instruction* ptr)
     for(llvm::Instruction::use_iterator it = ptr->use_begin(); it != ptr->use_end(); ++it) {
         if(Instruction* _it = dyn_cast<Instruction>(*it)) {
             NoCryptoFA::InstructionMetadata* usemd = NoCryptoFA::known[_it];
+            usemd->lock.lock(); // Deadlock is impossible: each  mutex couple is (instruction,use), the reverse would be (instruction,operand). And an istruction should never be the successor of itself.
+                           // Possible with loops, but we avoid loops in this type of computation.
             fav.md = md;
             fav.usemd = usemd;
             fav.visit(_it);
+            usemd->lock.unlock();
         }
     }
 
     for(unsigned long i = 0; i < md->fault_keys.size(); i++){
         if(!areVectorOfBitsetEqual<MAX_KMBITS>(oldFK[i], md->fault_keys[i])) { changed = true; break;}
     }
+    md->lock.unlock();
     if(changed) {
+        toBeVisited_mutex.lock();
         for(llvm::Instruction::op_iterator it = ptr->op_begin(); it != ptr->op_end(); ++it) {
             if(Instruction* _it = dyn_cast<Instruction>(*it)) {
                 toBeVisited.insert(_it);
             }
         }
+        toBeVisited_mutex.unlock();
     }
 }
 void CalcDFG::calcOuthit(Instruction* ptr)
