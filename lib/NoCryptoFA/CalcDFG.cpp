@@ -105,14 +105,18 @@ Excluding any non-meaningful output bit by using out_hit information.
 */
 void calcStatistics_faultkeybits(llvm::NoCryptoFA::InstructionMetadata* md)
 {
-    int cnt,ohcnt;
+    int cnt,cnt_sub,cnt_kd,ohcnt=0;
     md->faultable_stats.min_keylen_nz = MAX_PROTECTION;
     assert(md->fault_keys.size() == md->out_hit.size());
+    assert(md->fault_keys_keydep.size() == md->out_hit.size());
     for(unsigned long i = 0;i<md->fault_keys.size();i++) {
         assert(md->fault_keys[i].size() == MAX_OUTBITS);
+        assert(md->fault_keys_keydep[i].size() == MAX_OUTBITS);
         for(unsigned long j = 0, max=md->fault_keys[i].size();j<max;j++) {
             if(md->out_hit[i][j] == 0) continue;
-            cnt=md->fault_keys[i][j].count();
+            cnt_sub=md->fault_keys[i][j].count();
+            cnt_kd = md->fault_keys_keydep[i][j].count();
+            cnt = min(cnt_sub,cnt_kd);
             if(cnt > 0){
                 if(md->faultable_stats.min_keylen_nz > cnt){
                     md->faultable_stats.min_keylen_nz = cnt;
@@ -129,7 +133,7 @@ void calcStatistics_faultkeybits(llvm::NoCryptoFA::InstructionMetadata* md)
         }
     }
 
-    if( md->faultable_stats.min_keylen_nz==MAX_PROTECTION) {md->faultable_stats.min_keylen_nz=0;}
+    if( md->faultable_stats.min_keylen_nz==MAX_PROTECTION) {md->faultable_stats.min_keylen_nz=0;md->faultable_stats.hw_outhit_of_min_keylen_nz = 0;}
 }
 
 CalcDFG* llvm::createCalcDFGPass()
@@ -329,18 +333,49 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
     });
     runBatched_parallel(cipherOutValues, [this](Instruction * p,long batchn)->void { calcFAKeyProp(p);});
 
-    runBatched(cipherOutPoints, [this](Instruction * p,long batchn)->bool {
+    runBatched_parallel(cipherOutValues, [fault_subkeytokey,this](Instruction * p,long batchn)->void {
+            llvm::NoCryptoFA::InstructionMetadata*md = getMD(p);
+            md->lock.lock();
+            if(md->fault_keys_keydep.size() > 0){md->lock.unlock();return;}
+            md->fault_keys_keydep.resize(md->fault_keys.size());
+            for(unsigned long i =0;i< md->fault_keys.size();i++){
+                md->fault_keys_keydep[i].resize(md->fault_keys[i].size());
+                for(unsigned long j =0;j< md->fault_keys[i].size();j++){
+                    bitset<MAX_KEYBITS> kb=0;
+                    for(unsigned long m =0;m< MAX_KMBITS;m++){
+                        if(md->fault_keys[i][j][m]){
+                            kb |= fault_subkeytokey[m];
+                        }
+                    }
+                    md->fault_keys_keydep[i][j] = kb;
+                }
+            }
+            for(llvm::Instruction::op_iterator it = p->op_begin(); it != p->op_end(); ++it) {
+                if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                    toBeVisited_mutex.lock();
+                    toBeVisited.insert(_it);
+                    toBeVisited_mutex.unlock();
+                }
+            }
+            md->lock.unlock();
+        });
+
+
+    runBatched_parallel(cipherOutPoints, [this](Instruction * p,long batchn)->void {
                 llvm::NoCryptoFA::InstructionMetadata* md = getMD(p);
+                md->lock.lock();
                 if(md->faultable_stats.calculated == false){
                     calcStatistics_faultkeybits(md);
                     md->faultable_stats.calculated = true;
                     for(llvm::Instruction::op_iterator it = p->op_begin(); it != p->op_end(); ++it) {
                         if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                            toBeVisited_mutex.lock();
                             toBeVisited.insert(_it);
+                            toBeVisited_mutex.unlock();
                         }
                     }
                 }
-                return false;
+                md->lock.unlock();
     });
 
     runBatched(vulnerableTop, [this](Instruction * p,long batchn)->bool {checkPre_masking(p);return false;});
@@ -668,6 +703,7 @@ void CalcDFG::calcFAKeyProp(Instruction* ptr)
     for(unsigned long i = 0; i < md->fault_keys.size(); i++){
         if(!areVectorOfBitsetEqual<MAX_KMBITS>(oldFK[i], md->fault_keys[i])) { changed = true; break;}
     }
+    md->fault_keys_keydep.resize(0);
     md->lock.unlock();
     if(changed || !md->fault_keys_calculated) {
         md->fault_keys_calculated=true;

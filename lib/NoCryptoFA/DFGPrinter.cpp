@@ -484,7 +484,9 @@ bool doHTML_instruction(Instruction* i, CalcDFG* cd){
         for(unsigned long i = 0; i < md->fault_keys.size(); i++){
             stringstream ss;
             ss << "faultkeys-" << i;
-            boxcont << printvec_large<MAX_KMBITS>(md->fault_keys[i],cd->getMSBEverSet_Fault(), ss.str()) << "\n<hr/>\n";
+            boxcont << printvec_large<MAX_KMBITS>(md->fault_keys[i],cd->getMSBEverSet_Fault(), ss.str()) << "\n";
+            ss << "-kd";
+            boxcont << printvec_large<MAX_KEYBITS>(md->fault_keys_keydep[i],cd->getMSBEverSet(), ss.str()) << "\n<hr/>\n";
 
         }
     }

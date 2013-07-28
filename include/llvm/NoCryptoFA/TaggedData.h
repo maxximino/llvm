@@ -92,6 +92,7 @@ namespace llvm
                 std::bitset<MAX_OUTBITS> out_hit_own;
                 std::bitset<MAX_KMBITS> fullsubkey_own;
                 std::vector<std::vector<std::bitset<MAX_KMBITS> > > fault_keys;
+                std::vector<std::vector<std::bitset<MAX_KEYBITS> > > fault_keys_keydep;
                 /*      {  //Statistics for output  */
                             struct {
                                 char calculated = false;
