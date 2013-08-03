@@ -337,7 +337,7 @@ void DFGPrinter::doCSV(Module& M){
             instr_dump << "Min_MinNZ;Plaintext;PTHeight;CTHeight;ToBeProtected_pre;ToBeProtected_post;ToBeProtected;SourceLine;SourceColumn;";
             // parte per output dettagliato
             instr_dump << "IsAKeyOp;IsAKeyStart;PreKeyStart;SubKey;PostKeyStart;Sbox;post_FirstToMeetKey;HasBeenMasked;Origin;ValueSize;keydep_own.count;";
-            instr_dump << "KD_Max;KD_Min;KD_MinNZ;KD_Avg;KD_AvgNZ;FK_min;FOH_of_fk_min";
+            instr_dump << "KD_Max;KD_Min;KD_MinNZ;KD_Avg;KD_AvgNZ;FK_min;FOH_of_fk_min;BYTE_FK_min;BYTE_FOH_of_fk_min;WORD_FK_min;WORD_FOH_of_fk_min";
             instr_dump << "pre;pre_own;post;post_own;";
             // fine parte per output dettagliato
             instr_dump << "\"Full instruction\"\n";
@@ -388,6 +388,10 @@ void DFGPrinter::doCSV(Module& M){
                 instr_dump << md->keydep_stats.avg_nonzero << ";";
                 instr_dump << md->faultable_stats.min_keylen_nz << ";";
                 instr_dump << md->faultable_stats.hw_outhit_of_min_keylen_nz << ";";
+                instr_dump << md->faultable_stats_byte.min_keylen_nz << ";";
+                instr_dump << md->faultable_stats_byte.hw_outhit_of_min_keylen_nz << ";";
+                instr_dump << md->faultable_stats_word.min_keylen_nz << ";";
+                instr_dump << md->faultable_stats_word.hw_outhit_of_min_keylen_nz << ";";
 
                 /* Keep the code here, it might get useful in a far future... actually, it's not worth the time and filesize increase.
                 instr_dump << print_syntethic<MAX_SUBBITS>(md->pre) << ";";
@@ -409,7 +413,7 @@ bool doHTML_instruction(Instruction* i, CalcDFG* cd){
     llvm::raw_string_ostream os (outp);
     std::stringstream boxcont("");
     std::stringstream fname("");
-    boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/><script type=\"text/javascript\" src=\"../node.js\"></script></head><body><pre>";
+    boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/><script type=\"text/javascript\" src=\"../node.js\"></script><script type=\"text/javascript\" src=\"https://www.google.com/jsapi\"></script></head><body><pre>";
     llvm::NoCryptoFA::InstructionMetadata* md = cd->getMD(i);
     os << "I:<span>" << md->getAsString() << "</span>\n";
     if(md->isAKeyOperation) {
@@ -480,15 +484,32 @@ bool doHTML_instruction(Instruction* i, CalcDFG* cd){
         boxcont << "\nPost_Keydep:" << printvec_large<MAX_KEYBITS>(md->post_keydep,cd->getMSBEverSet(),"post-keydep");
         boxcont << "\nFA_OutHits:" << printvec_large<MAX_OUTBITS>(md->out_hit,cd->getMSBEverSet(),"fa-outhits");
         boxcont << "\nFA_Key_Own:" << printbs_large<MAX_KMBITS>(md->fullsubkey_own);
-        boxcont << "\nFA_keydeps: Brace yourself, 3D slices are coming. min_nz:" << md->faultable_stats.min_keylen_nz << " oh :"<< md->faultable_stats.hw_outhit_of_min_keylen_nz << "\n";
+        boxcont << "\nFA_keydeps: Brace yourself, 3D slices are coming.\n";
+        boxcont << "<div id=\"fa_bit\">BIT: min_nz:" << md->faultable_stats.min_keylen_nz << " oh :"<< md->faultable_stats.hw_outhit_of_min_keylen_nz << "\n";
         for(unsigned long i = 0; i < md->fault_keys.size(); i++){
             stringstream ss;
-            ss << "faultkeys-" << i;
+            ss << "faultkeys-bit-" << i;
             boxcont << printvec_large<MAX_KMBITS>(md->fault_keys[i],cd->getMSBEverSet_Fault(), ss.str()) << "\n";
             ss << "-kd";
             boxcont << printvec_large<MAX_KEYBITS>(md->fault_keys_keydep[i],cd->getMSBEverSet(), ss.str()) << "\n<hr/>\n";
-
         }
+        boxcont << "</div><div id=\"fa_byte\">BYTE: min_nz:" << md->faultable_stats_byte.min_keylen_nz << " oh :"<< md->faultable_stats_byte.hw_outhit_of_min_keylen_nz << "\n";
+        for(unsigned long i = 0; i < md->fault_keys_byte.size(); i++){
+            stringstream ss;
+            ss << "faultkeys-byte-" << i;
+            boxcont << printvec_large<MAX_KMBITS>(md->fault_keys_byte[i],cd->getMSBEverSet_Fault(), ss.str()) << "\n";
+            ss << "-kd";
+            boxcont << printvec_large<MAX_KEYBITS>(md->fault_keys_keydep_byte[i],cd->getMSBEverSet(), ss.str()) << "\n<hr/>\n";
+        }
+        boxcont << "</div><div id=\"fa_word\">WORD: min_nz:" << md->faultable_stats_word.min_keylen_nz << " oh :"<< md->faultable_stats_word.hw_outhit_of_min_keylen_nz << "\n";
+        for(unsigned long i = 0; i < md->fault_keys_word.size(); i++){
+            stringstream ss;
+            ss << "faultkeys-word-" << i;
+            boxcont << printvec_large<MAX_KMBITS>(md->fault_keys_word[i],cd->getMSBEverSet_Fault(), ss.str()) << "\n";
+            ss << "-kd";
+            boxcont << printvec_large<MAX_KEYBITS>(md->fault_keys_keydep_word[i],cd->getMSBEverSet(), ss.str()) << "\n<hr/>\n";
+        }
+        boxcont << "</div>";
     }
 
     fname << md->NodeName << ".html";

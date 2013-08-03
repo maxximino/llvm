@@ -89,10 +89,16 @@ namespace llvm
                 /* } */
                 /*For fault analysis {*/
                 std::vector<std::bitset<MAX_OUTBITS> > out_hit;
+                std::vector<std::bitset<MAX_OUTBITS> > out_hit_byte;
+                std::vector<std::bitset<MAX_OUTBITS> > out_hit_word;
                 std::bitset<MAX_OUTBITS> out_hit_own;
                 std::bitset<MAX_KMBITS> fullsubkey_own;
                 std::vector<std::vector<std::bitset<MAX_KMBITS> > > fault_keys;
                 std::vector<std::vector<std::bitset<MAX_KEYBITS> > > fault_keys_keydep;
+                std::vector<std::vector<std::bitset<MAX_KMBITS> > > fault_keys_byte;
+                std::vector<std::vector<std::bitset<MAX_KEYBITS> > > fault_keys_keydep_byte;
+                std::vector<std::vector<std::bitset<MAX_KMBITS> > > fault_keys_word;
+                std::vector<std::vector<std::bitset<MAX_KEYBITS> > > fault_keys_keydep_word;
                 /*      {  //Statistics for output  */
                             struct {
                                 char calculated = false;
@@ -100,6 +106,18 @@ namespace llvm
                                 int hw_outhit_of_min_keylen_nz;
                                 bitset<MAX_OUTBITS> outhit_of_min_keylen_nz;
                             } faultable_stats;
+                            struct {
+                                char calculated = false;
+                                int min_keylen_nz;
+                                int hw_outhit_of_min_keylen_nz;
+                                bitset<MAX_OUTBITS> outhit_of_min_keylen_nz;
+                            } faultable_stats_byte;
+                            struct {
+                                char calculated = false;
+                                int min_keylen_nz;
+                                int hw_outhit_of_min_keylen_nz;
+                                bitset<MAX_OUTBITS> outhit_of_min_keylen_nz;
+                            } faultable_stats_word;
                 /*      } */
                 /* } */
                 InstructionMetadata(Instruction* ptr): lock(),keydep(0), keydep_own(0),pre(0),pre_keydep(0),pre_own(0), post(0),post_keydep(0), post_own(0), MaskedValues(0), keydep_stats(),pre_stats(),post_stats() {

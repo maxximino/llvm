@@ -135,7 +135,112 @@ void calcStatistics_faultkeybits(llvm::NoCryptoFA::InstructionMetadata* md)
 
     if( md->faultable_stats.min_keylen_nz==MAX_PROTECTION) {md->faultable_stats.min_keylen_nz=0;md->faultable_stats.hw_outhit_of_min_keylen_nz = 0;}
 }
+void calcStatistics_faultkeybits_byte(llvm::NoCryptoFA::InstructionMetadata* md)
+{
+    int cnt,cnt_sub,cnt_kd,ohcnt=0;
+    md->faultable_stats_byte.min_keylen_nz = MAX_PROTECTION;
+    assert(md->fault_keys_byte.size() == md->out_hit_byte.size());
+    assert(md->fault_keys_keydep_byte.size() == md->out_hit_byte.size());
+    for(unsigned long i = 0;i<md->fault_keys_byte.size();i++) {
+        assert(md->fault_keys_byte[i].size() == MAX_OUTBITS);
+        assert(md->fault_keys_keydep_byte[i].size() == MAX_OUTBITS);
+        for(unsigned long j = 0, max=md->fault_keys_byte[i].size();j<max;j++) {
+            if(md->out_hit_byte[i][j] == 0) continue;
+            cnt_sub=md->fault_keys_byte[i][j].count();
+            cnt_kd = md->fault_keys_keydep_byte[i][j].count();
+            cnt = min(cnt_sub,cnt_kd);
+            if(cnt > 0){
+                if(md->faultable_stats_byte.min_keylen_nz > cnt){
+                    md->faultable_stats_byte.min_keylen_nz = cnt;
+                    md->faultable_stats_byte.outhit_of_min_keylen_nz = md->out_hit_byte[i];
+                    md->faultable_stats_byte.hw_outhit_of_min_keylen_nz = md->out_hit_byte[i].count();
+                }else if(md->faultable_stats_byte.min_keylen_nz == cnt){
+                    ohcnt = md->out_hit_byte[i].count();
+                    if(md->faultable_stats_byte.hw_outhit_of_min_keylen_nz > ohcnt){
+                        md->faultable_stats_byte.outhit_of_min_keylen_nz = md->out_hit_byte[i];
+                        md->faultable_stats_byte.hw_outhit_of_min_keylen_nz = ohcnt;
+                    }
+                }
+            }
+        }
+    }
 
+    if( md->faultable_stats_byte.min_keylen_nz==MAX_PROTECTION) {md->faultable_stats_byte.min_keylen_nz=0;md->faultable_stats_byte.hw_outhit_of_min_keylen_nz = 0;}
+}
+void calcStatistics_faultkeybits_word(llvm::NoCryptoFA::InstructionMetadata* md)
+{
+    int cnt,cnt_sub,cnt_kd,ohcnt=0;
+    md->faultable_stats_word.min_keylen_nz = MAX_PROTECTION;
+    assert(md->fault_keys_word.size() == md->out_hit_word.size());
+    assert(md->fault_keys_keydep_word.size() == md->out_hit_word.size());
+    for(unsigned long i = 0;i<md->fault_keys_word.size();i++) {
+        assert(md->fault_keys_word[i].size() == MAX_OUTBITS);
+        assert(md->fault_keys_keydep_word[i].size() == MAX_OUTBITS);
+        for(unsigned long j = 0, max=md->fault_keys_word[i].size();j<max;j++) {
+            if(md->out_hit_word[i][j] == 0) continue;
+            cnt_sub=md->fault_keys_word[i][j].count();
+            cnt_kd = md->fault_keys_keydep_word[i][j].count();
+            cnt = min(cnt_sub,cnt_kd);
+            if(cnt > 0){
+                if(md->faultable_stats_word.min_keylen_nz > cnt){
+                    md->faultable_stats_word.min_keylen_nz = cnt;
+                    md->faultable_stats_word.outhit_of_min_keylen_nz = md->out_hit_word[i];
+                    md->faultable_stats_word.hw_outhit_of_min_keylen_nz = md->out_hit_word[i].count();
+                }else if(md->faultable_stats_word.min_keylen_nz == cnt){
+                    ohcnt = md->out_hit_word[i].count();
+                    if(md->faultable_stats_word.hw_outhit_of_min_keylen_nz > ohcnt){
+                        md->faultable_stats_word.outhit_of_min_keylen_nz = md->out_hit_word[i];
+                        md->faultable_stats_word.hw_outhit_of_min_keylen_nz = ohcnt;
+                    }
+                }
+            }
+        }
+    }
+
+    if( md->faultable_stats_word.min_keylen_nz==MAX_PROTECTION) {md->faultable_stats_word.min_keylen_nz=0;md->faultable_stats_word.hw_outhit_of_min_keylen_nz = 0;}
+}
+void build_fault_data_byte(llvm::NoCryptoFA::InstructionMetadata* md){
+    md->out_hit_byte.resize(ceil(md->out_hit.size()/8.0f));
+    md->fault_keys_byte.resize(ceil(md->fault_keys.size()/8.0f));
+    bitset<MAX_OUTBITS> oh(0);
+    vector<bitset<MAX_KMBITS>> fk(MAX_OUTBITS,bitset<MAX_KMBITS>(0));
+    assert(md->fault_keys.size() == md->out_hit.size());
+    for(unsigned long i = 0;i<md->fault_keys.size();i++) {
+        oh |= md->out_hit[i];
+        for(unsigned long j = 0, max=md->fault_keys[i].size();j<max;j++) {
+            fk[j] |= md->fault_keys[i][j];
+        }
+        if(i%8==7 || i == (md->fault_keys.size()-1)){
+            md->out_hit_byte[i/8] = oh; //deep copy
+            md->fault_keys_byte[i/8] = fk; //deep copy
+            oh.reset();
+            for(unsigned long j = 0, max=fk.size();j<max;j++) {
+                fk[i].reset();
+            }
+        }
+    }
+}
+void build_fault_data_word(llvm::NoCryptoFA::InstructionMetadata* md){
+    md->out_hit_word.resize(ceil(md->out_hit.size()/32.0f));
+    md->fault_keys_word.resize(ceil(md->fault_keys.size()/32.0f));
+    bitset<MAX_OUTBITS> oh(0);
+    vector<bitset<MAX_KMBITS>> fk(MAX_OUTBITS,bitset<MAX_KMBITS>(0));
+    assert(md->fault_keys.size() == md->out_hit.size());
+    for(unsigned long i = 0;i<md->fault_keys.size();i++) {
+        oh |= md->out_hit[i];
+        for(unsigned long j = 0, max=md->fault_keys[i].size();j<max;j++) {
+            fk[j] |= md->fault_keys[i][j];
+        }
+        if(i%32==31 || i == (md->fault_keys.size()-1)){
+            md->out_hit_word[i/32] = oh; //deep copy
+            md->fault_keys_word[i/32] = fk; //deep copy
+            oh.reset();
+            for(unsigned long j = 0, max=fk.size();j<max;j++) {
+                fk[i].reset();
+            }
+        }
+    }
+}
 CalcDFG* llvm::createCalcDFGPass()
 {
     return new CalcDFG();
@@ -324,6 +429,10 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
                 llvm::NoCryptoFA::InstructionMetadata* md = getMD(p);
                 md->faultable_stats.calculated = false;
                 md->fault_keys_calculated = false;
+                md->fault_keys_byte.resize(0);
+                md->fault_keys_word.resize(0);
+                md->out_hit_byte.resize(0);
+                md->out_hit_word.resize(0);
                 for(llvm::Instruction::op_iterator it = p->op_begin(); it != p->op_end(); ++it) {
                     if(Instruction* _it = dyn_cast<Instruction>(*it)) {
                         toBeVisited.insert(_it);
@@ -333,11 +442,30 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
     });
     runBatched_parallel(cipherOutValues, [this](Instruction * p,long batchn)->void { calcFAKeyProp(p);});
 
+    runBatched_parallel(cipherOutPoints, [this](Instruction * p,long batchn)->void {
+                llvm::NoCryptoFA::InstructionMetadata* md = getMD(p);
+                md->lock.lock();
+                if(md->fault_keys_byte.size() == 0){
+                    build_fault_data_byte(md);
+                    build_fault_data_word(md);
+                    for(llvm::Instruction::op_iterator it = p->op_begin(); it != p->op_end(); ++it) {
+                        if(Instruction* _it = dyn_cast<Instruction>(*it)) {
+                            toBeVisited_mutex.lock();
+                            toBeVisited.insert(_it);
+                            toBeVisited_mutex.unlock();
+                        }
+                    }
+                }
+                md->lock.unlock();
+    });
+
     runBatched_parallel(cipherOutValues, [fault_subkeytokey,this](Instruction * p,long batchn)->void {
             llvm::NoCryptoFA::InstructionMetadata*md = getMD(p);
             md->lock.lock();
             if(md->fault_keys_keydep.size() > 0){md->lock.unlock();return;}
             md->fault_keys_keydep.resize(md->fault_keys.size());
+            md->fault_keys_keydep_byte.resize(md->fault_keys_byte.size());
+            md->fault_keys_keydep_word.resize(md->fault_keys_word.size());
             for(unsigned long i =0;i< md->fault_keys.size();i++){
                 md->fault_keys_keydep[i].resize(md->fault_keys[i].size());
                 for(unsigned long j =0;j< md->fault_keys[i].size();j++){
@@ -350,6 +478,31 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
                     md->fault_keys_keydep[i][j] = kb;
                 }
             }
+            for(unsigned long i =0;i< md->fault_keys_byte.size();i++){
+                md->fault_keys_keydep_byte[i].resize(md->fault_keys_byte[i].size());
+                for(unsigned long j =0;j< md->fault_keys_byte[i].size();j++){
+                    bitset<MAX_KEYBITS> kb=0;
+                    for(unsigned long m =0;m< MAX_KMBITS;m++){
+                        if(md->fault_keys_byte[i][j][m]){
+                            kb |= fault_subkeytokey[m];
+                        }
+                    }
+                    md->fault_keys_keydep_byte[i][j] = kb;
+                }
+            }
+            for(unsigned long i =0;i< md->fault_keys_word.size();i++){
+                md->fault_keys_keydep_word[i].resize(md->fault_keys_word[i].size());
+                for(unsigned long j =0;j< md->fault_keys_word[i].size();j++){
+                    bitset<MAX_KEYBITS> kb=0;
+                    for(unsigned long m =0;m< MAX_KMBITS;m++){
+                        if(md->fault_keys_word[i][j][m]){
+                            kb |= fault_subkeytokey[m];
+                        }
+                    }
+                    md->fault_keys_keydep_word[i][j] = kb;
+                }
+            }
+
             for(llvm::Instruction::op_iterator it = p->op_begin(); it != p->op_end(); ++it) {
                 if(Instruction* _it = dyn_cast<Instruction>(*it)) {
                     toBeVisited_mutex.lock();
@@ -366,6 +519,8 @@ bool CalcDFG::runOnFunction(llvm::Function& Fun)
                 md->lock.lock();
                 if(md->faultable_stats.calculated == false){
                     calcStatistics_faultkeybits(md);
+                    calcStatistics_faultkeybits_byte(md);
+                    calcStatistics_faultkeybits_word(md);
                     md->faultable_stats.calculated = true;
                     for(llvm::Instruction::op_iterator it = p->op_begin(); it != p->op_end(); ++it) {
                         if(Instruction* _it = dyn_cast<Instruction>(*it)) {
