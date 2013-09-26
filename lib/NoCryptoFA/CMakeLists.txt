@@ -5,5 +5,6 @@ add_llvm_library(LLVMNoCryptoFA
   MaxTestPass.cpp
   CalcDFG.cpp
   InstructionReplace.cpp
+  Deduplicator.cpp
   )
 

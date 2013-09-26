@@ -24,6 +24,7 @@
 #include <llvm/IntrinsicInst.h>
 #include <llvm/NoCryptoFA/All.h>
 #include <llvm/Support/CommandLine.h>
+#include <semaphore.h>
 using namespace llvm;
 using namespace std;
 
@@ -322,12 +323,12 @@ AN& DFGPrinter::my_getAnalysis(Function* f){
 }
 
 void DFGPrinter::doCSV(Module& M){
+    errs() << "Starting CSV output\n";
     for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
         for(llvm::Function::iterator BB = F->begin(),
             FE = F->end();
             BB != FE;
             ++BB) {
-            TaggedData& td = getAnalysis<TaggedData>(*F);
             CalcDFG& cd = my_getAnalysis<CalcDFG>(F);
             string instr_dump_str = string();
             instr_dump_str.reserve(200*1024*1024); //200M, yes, I hate having to re-alloc something. Even if it is transparent to the developer. I need to use those 16GB of RAM.
@@ -341,7 +342,7 @@ void DFGPrinter::doCSV(Module& M){
             instr_dump << "pre;pre_own;post;post_own;";
             // fine parte per output dettagliato
             instr_dump << "\"Full instruction\"\n";
-            if(!td.functionMarked(&(*F))) { continue; }
+            if(!cd.functionMarked(&(*F))) { continue; }
             for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
                 if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
                 llvm::NoCryptoFA::InstructionMetadata* md = cd.getMD(i);
@@ -407,7 +408,9 @@ void DFGPrinter::doCSV(Module& M){
     }
 
 }
+sem_t html_sem;
 bool doHTML_instruction(Instruction* i, CalcDFG* cd){
+    sem_wait(&html_sem);
     std::string outp;
     outp.reserve(200*1024); //200k. Smaller :)
     llvm::raw_string_ostream os (outp);
@@ -415,6 +418,7 @@ bool doHTML_instruction(Instruction* i, CalcDFG* cd){
     std::stringstream fname("");
     boxcont << "<html><head><LINK REL=StyleSheet HREF=\"../node.css\" TYPE=\"text/css\"/><script type=\"text/javascript\" src=\"../node.js\"></script><script type=\"text/javascript\" src=\"https://www.google.com/jsapi\"></script></head><body><pre>";
     llvm::NoCryptoFA::InstructionMetadata* md = cd->getMD(i);
+    md->unpack();
     os << "I:<span>" << md->getAsString() << "</span>\n";
     if(md->isAKeyOperation) {
         if(md->isAKeyStart) {
@@ -511,24 +515,26 @@ bool doHTML_instruction(Instruction* i, CalcDFG* cd){
         }
         boxcont << "</div>";
     }
-
+    md->pack();
     fname << md->NodeName << ".html";
     boxcont << "</pre></body></html>";
     outFile(fname.str(), boxcont.str());
+    sem_post(&html_sem);
     return true;
 }
 #include <future>
 
 void DFGPrinter::doHTML(Module& M){
+    errs() << "Starting HTML output\n";
     list<future<bool> > operations;
     for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
         for(llvm::Function::iterator BB = F->begin(),
             FE = F->end();
             BB != FE;
             ++BB) {
-            TaggedData& td = getAnalysis<TaggedData>(*F);
             CalcDFG& cd = my_getAnalysis<CalcDFG>(F);
-            if(!td.functionMarked(&(*F))) { continue; }
+            if(!cd.functionMarked(&(*F))) { continue; }
+            sem_init(&html_sem,0,1+std::thread::hardware_concurrency());
             for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
                 if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
                operations.push_front(async(launch::async,doHTML_instruction,i,&cd));
@@ -542,6 +548,7 @@ void DFGPrinter::doHTML(Module& M){
 void DFGPrinter::doDOT(Module& M){
     MyNodeType* cur;
     bool added;
+    errs() << "Starting DOT output\n";
     multimap<Instruction*, MyNodeType*> future_edges;
     for(llvm::Module::iterator F = M.begin(), ME = M.end(); F != ME; ++F) {
         MyNodeType* me = new MyNodeType(F->getName());
@@ -552,9 +559,8 @@ void DFGPrinter::doDOT(Module& M){
             FE = F->end();
             BB != FE;
             ++BB) {
-            TaggedData& td = getAnalysis<TaggedData>(*F);
             CalcDFG& cd = my_getAnalysis<CalcDFG>(F);
-            if(!td.functionMarked(&(*F))) { continue; }
+            if(!cd.functionMarked(&(*F))) { continue; }
             for( llvm::BasicBlock::iterator i = BB->begin(); i != BB->end(); i++) {
                 if(isa<llvm::DbgInfoIntrinsic>(i)) {continue;}
                 std::string outp;
@@ -625,8 +631,12 @@ void DFGPrinter::getAnalysisUsage(llvm::AnalysisUsage& AU) const
 	// preserved analysis -- AU.setPreserved. However, this pass does no require
 	// any analysis and potentially invalidates all analysis. The default
 	// behaviour is to invalidate all analysis.
-	AU.addRequired<TaggedData>();
-	AU.addRequired<CalcDFG>();
+//    AU.addRequired<TaggedData>();
+//    AU.addRequiredTransitive<TaggedData>();
+    AU.addRequired<CalcDFG>();
+
+
+    AU.setPreservesCFG();
 	AU.setPreservesAll();
 }
 
@@ -653,9 +663,8 @@ INITIALIZE_PASS_BEGIN(DFGPrinter,
                       "dfgprint",
                       false,
                       false)
-INITIALIZE_PASS_DEPENDENCY(TaggedData)
+//INITIALIZE_PASS_DEPENDENCY(TaggedData)
 INITIALIZE_PASS_DEPENDENCY(CalcDFG)
-
 
 INITIALIZE_PASS_END(DFGPrinter,
                     "dfgprint",

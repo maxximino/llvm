@@ -30,7 +30,7 @@ namespace llvm
 		public:
 			static char ID;
 			DFGPrinter() : llvm::ModulePass(ID), instrnodemap() {
-				initializeDFGPrinterPass(*PassRegistry::getPassRegistry());
+                //initializeDFGPrinterPass(*PassRegistry::getPassRegistry());
 				rootptr = new MyNodeType("root");
 				MyNodeType::rootnode = rootptr;
 			}

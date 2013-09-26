@@ -1,7 +1,7 @@
 #include <llvm/Support/InstVisitor.h>
 #include <llvm/NoCryptoFA/All.h>
 using namespace llvm;
-template<int MAXBITS,vector<bitset<MAXBITS> > NoCryptoFA::InstructionMetadata::*DATA,bitset<MAXBITS> NoCryptoFA::InstructionMetadata::*OWN>
+template<int MAXBITS,vector<bitset<MAXBITS> > NoCryptoFA::InstructionMetadata::*DATA,bitset<MAXBITS> NoCryptoFA::InstructionMetadata::*OWN, unsigned int UNPACKFLAGS>
 /*
 This template requires some explaination:
 This class is an InstructionVisitor (see LLVM doc.)
@@ -17,7 +17,7 @@ This is implemented through the use of pointers-to-members, that means that ever
 So through this class you'll find *DATA and *OWN. They are not usual pointers-to-memory, but pointers-to-member.
 Template parameter MAXBITS is introduced to keep all of the bitsets of the first case smaller than those of the second.
 */
-class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, OWN> >
+class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, OWN, UNPACKFLAGS> >
 {
 	protected:
 		template<int NUMBITS>
@@ -53,6 +53,7 @@ class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, 
 	public:
 		void visitInstruction(Instruction& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
+            md->unpack(UNPACKFLAGS);
             if((md->*OWN).any() ){
                 /*for(int i = 0; i< (md->*DATA).size(); i++)
                 {
@@ -62,32 +63,42 @@ class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, 
             }
 			for(User::const_op_iterator it = inst.op_begin(); it != inst.op_end(); ++it) {
 				if(Instruction* _it = dyn_cast<Instruction>(*it)) {
-                    int size = std::min((NoCryptoFA::known[_it]->*DATA).size(), (md->*DATA).size());
+                    NoCryptoFA::InstructionMetadata* tmpmd = NoCryptoFA::known[_it];
+                    tmpmd->unpack(UNPACKFLAGS);
+                    int size = std::min((tmpmd->*DATA).size(), (md->*DATA).size());
 					for(int i = 0; i < size; ++i) {
-                        (md->*DATA)[i] =  (md->*DATA)[i] | (NoCryptoFA::known[_it]->*DATA)[i];
+                        (md->*DATA)[i] =  (md->*DATA)[i] | (tmpmd->*DATA)[i];
 
 					}
-                    if((NoCryptoFA::known[_it]->*OWN).any()) {
-     //                   (md->*DATA)[i] = (md->*DATA)[i] | NoCryptoFA::known[_it]->*OWN; //TODO: diagonale, non blocchettino!
-                        setDiagonal(md->*DATA,NoCryptoFA::known[_it]->*OWN);
+                    if((tmpmd->*OWN).any()) {
+     //                   (md->*DATA)[i] = (md->*DATA)[i] | tmpmd->*OWN; //TODO: diagonale, non blocchettino!
+                        setDiagonal(md->*DATA,tmpmd->*OWN);
                     }
+                    tmpmd->pack();
 				}
             }
+            md->pack();
 		}
 		void visitTrunc(CastInst& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
 			unsigned int from = CalcDFG::getOperandSize(inst.getSrcTy());
 			unsigned int to = CalcDFG::getOperandSize(inst.getDestTy());
 			unsigned int diff = from - to;
-			NoCryptoFA::InstructionMetadata* other = NoCryptoFA::known[cast<Instruction>(inst.getOperand(0))];
+            NoCryptoFA::InstructionMetadata* other = NoCryptoFA::known[cast<Instruction>(inst.getOperand(0))];
+            md->unpack(UNPACKFLAGS);
+            other->unpack(UNPACKFLAGS);
             for(unsigned int i = 0; i < (md->*DATA).size(); i++) { (md->*DATA)[i] = (other->*DATA)[diff + i]; }
+            md->pack();
+            other->pack();
 		}
 		void visitZExt(CastInst& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
 			visitInstruction(inst);
+            md->unpack(UNPACKFLAGS);
 			int from = CalcDFG::getOperandSize(inst.getSrcTy());
 			int to = CalcDFG::getOperandSize(inst.getDestTy());
             ShiftKeyBitset<MAXBITS>(0, to - from, md->*DATA);
+            md->pack();
 		}
 		void visitSExt(CastInst& inst) { visitZExt(inst); }
 		void calcShift(BinaryOperator& inst, int direction) { //0=>right, 1=>left
@@ -103,7 +114,9 @@ class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, 
                 idx = ci->getLimitedValue();
             }
 			visitInstruction(inst);
+            md->unpack(UNPACKFLAGS);
             ShiftKeyBitset<MAXBITS>(direction, idx, md->*DATA);
+            md->pack();
 		}
 		void visitShl(BinaryOperator& inst) { calcShift(inst, 1); }
 		void visitLShr(BinaryOperator& inst) { calcShift(inst, 0);}
@@ -126,6 +139,8 @@ class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, 
 			}
 			unsigned long mask = ci->getLimitedValue();
 			NoCryptoFA::InstructionMetadata* other = NoCryptoFA::known[i];
+            md->unpack(UNPACKFLAGS);
+            other->unpack(UNPACKFLAGS);
             auto size = (md->*DATA).size();
 			for(unsigned int i = 0; i < size; i++) {
 				if(is_bit_set(mask, i)) {
@@ -134,25 +149,32 @@ class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, 
                     (md->*DATA)[size - 1 - i] = bitset<MAXBITS>(0);
 				}
 			}
+            md->pack();
+            other->pack();
 		}
 		void calcAsBiggestSum(Instruction& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
+            md->unpack(UNPACKFLAGS);
             bitset<MAXBITS> max(0);
 			for(User::const_op_iterator it = inst.op_begin(); it != inst.op_end(); ++it) {
 				if(Instruction* _it = dyn_cast<Instruction>(*it)) {
-                    int size = (NoCryptoFA::known[_it]->*DATA).size();
+                    NoCryptoFA::InstructionMetadata* tmpmd = NoCryptoFA::known[_it];
+                    tmpmd->unpack(UNPACKFLAGS);
+                    int size = (tmpmd->*DATA).size();
 					for(int i = 0; i < size; ++i) {
                         max |= (NoCryptoFA::known[_it]->*DATA)[i];
                         if((NoCryptoFA::known[_it]->*OWN).any()) {
                             max |= NoCryptoFA::known[_it]->*OWN;
 						}
 					}
+                    tmpmd->pack();
 				}
 			}
             int size = (md->*DATA).size();
 			for(int i = 0; i < size; ++i) {
                 (md->*DATA)[i] =  max;
 			}
+            md->pack();
 		}
 		void visitMul(BinaryOperator& inst) {calcAsBiggestSum(inst);}
 		void visitUDiv(BinaryOperator& inst) {calcAsBiggestSum(inst);}
@@ -163,28 +185,38 @@ class CalcForwardVisitor : public InstVisitor<CalcForwardVisitor<MAXBITS, DATA, 
         void visitGetElementPtrInst(GetElementPtrInst& inst) {
             calcAsBiggestSum(inst);
             NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
+            md->unpack(UNPACKFLAGS);
             for(unsigned long i = 0; i < (md->*DATA).size();i++ )
             {
                 if(md->deadBits[i]) (md->*DATA)[i].reset();
             }
+            md->pack();
         }
 		void visitCallInst(CallInst& inst) {calcAsBiggestSum(inst);}
 		void visitSelectInst(SelectInst& inst) {
 			NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
+            md->unpack(UNPACKFLAGS);
             bitset<MAXBITS> tmp(0);
             int size = (md->*DATA).size();
 			Instruction* trueval = cast<Instruction>(inst.getTrueValue());
 			Instruction* falseval = cast<Instruction>(inst.getFalseValue());
+            NoCryptoFA::InstructionMetadata* true_md = NoCryptoFA::known[trueval];
+            NoCryptoFA::InstructionMetadata* false_md = NoCryptoFA::known[falseval];
+            true_md->unpack(UNPACKFLAGS);
+            false_md->unpack(UNPACKFLAGS);
 			for(int i = 0; i < size; ++i) {
-                tmp |= (NoCryptoFA::known[trueval]->*DATA)[i];
-                tmp |= (NoCryptoFA::known[falseval]->*DATA)[i];
-                if((NoCryptoFA::known[trueval]->*OWN).any()) {
-                    tmp |= NoCryptoFA::known[trueval]->*OWN;
+                tmp |= (true_md->*DATA)[i];
+                tmp |= (false_md->*DATA)[i];
+                if((true_md->*OWN).any()) {
+                    tmp |= true_md->*OWN;
 				}
-                if((NoCryptoFA::known[falseval]->*OWN).any()) {
-                    tmp |= NoCryptoFA::known[falseval]->*OWN;
+                if((false_md->*OWN).any()) {
+                    tmp |= false_md->*OWN;
 				}
                 (md->*DATA)[i] = tmp;
 			}
+            true_md->pack();
+            false_md->pack();
+            md->pack();
 		}
 };

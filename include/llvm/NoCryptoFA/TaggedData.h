@@ -1,5 +1,5 @@
 #pragma once
-
+#include "Deduplicator.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include <llvm/Instruction.h>
@@ -16,7 +16,24 @@
 #define MAX_KMBITS (34*128) //serpent.
 using namespace std;
 using namespace llvm;
+using namespace llvm::NoCryptoFA;
 
+enum PackWhat {     UNPACK_KEYDEP = 0,
+                    UNPACK_PRE_KEYDEP=1,
+                    UNPACK_POST_KEYDEP=2,
+                    UNPACK_PRE=3,
+                    UNPACK_POST=4,
+                    UNPACK_OH=5,
+                    UNPACK_OH_BYTE=6,
+                    UNPACK_OH_WORD=7,
+                    UNPACK_FAULT=8,
+                    UNPACK_FAULT_KEYDEP=9,
+                    UNPACK_FAULT_BYTE=10,
+                    UNPACK_FAULT_KEYDEP_BYTE=11,
+                    UNPACK_FAULT_WORD=12,
+                    UNPACK_FAULT_KEYDEP_WORD=13
+};
+#define PackMask(w) (1<<w)
 namespace llvm
 {
 	void initializeTaggedDataPass(PassRegistry& Registry);
@@ -51,7 +68,7 @@ namespace llvm
 				    SELECT_MASKED,
 				    REMOVE_MASK,
 				    MASKED_FUNCTION
-				};
+                };
                 mutex lock;
 				bool isAKeyOperation;
 				bool isAKeyStart;
@@ -128,6 +145,46 @@ namespace llvm
 				InstructionMetadata() {
 					init();
 				}
+                void unpack(){
+                    unpack(~((unsigned int)0));
+                }
+                void pack(){
+                    assert(!packed);
+                    if(unpacked_for & PackMask(UNPACK_KEYDEP)) Deduplicator::Dedup(&this->keydep);
+                    if(unpacked_for & PackMask(UNPACK_PRE_KEYDEP)) Deduplicator::Dedup(&this->pre_keydep);
+                    if(unpacked_for & PackMask(UNPACK_POST_KEYDEP)) Deduplicator::Dedup(&this->post_keydep);
+                    if(unpacked_for & PackMask(UNPACK_PRE)) Deduplicator::Dedup(&this->pre);
+                    if(unpacked_for & PackMask(UNPACK_POST)) Deduplicator::Dedup(&this->post);
+                    if(unpacked_for & PackMask(UNPACK_OH)) Deduplicator::Dedup(&this->out_hit);
+                    if(unpacked_for & PackMask(UNPACK_OH_BYTE)) Deduplicator::Dedup(&this->out_hit_byte);
+                    if(unpacked_for & PackMask(UNPACK_OH_WORD)) Deduplicator::Dedup(&this->out_hit_word);
+                    if(unpacked_for & PackMask(UNPACK_FAULT)) Deduplicator::Dedup(&this->fault_keys);
+                    if(unpacked_for & PackMask(UNPACK_FAULT_KEYDEP)) Deduplicator::Dedup(&this->fault_keys_keydep);
+                    if(unpacked_for & PackMask(UNPACK_FAULT_KEYDEP_BYTE)) Deduplicator::Dedup(&this->fault_keys_keydep_byte);
+                    if(unpacked_for & PackMask(UNPACK_FAULT_KEYDEP_WORD)) Deduplicator::Dedup(&this->fault_keys_keydep_word);
+                    if(unpacked_for & PackMask(UNPACK_FAULT_BYTE)) Deduplicator::Dedup(&this->fault_keys_byte);
+                    if(unpacked_for & PackMask(UNPACK_FAULT_WORD)) Deduplicator::Dedup(&this->fault_keys_word);
+                    packed=true;
+                }
+                void unpack(unsigned int what){
+                    assert(packed);
+                    if(what & PackMask(UNPACK_KEYDEP)) Deduplicator::Restore(&this->keydep);
+                    if(what & PackMask(UNPACK_PRE_KEYDEP)) Deduplicator::Restore(&this->pre_keydep);
+                    if(what & PackMask(UNPACK_POST_KEYDEP)) Deduplicator::Restore(&this->post_keydep);
+                    if(what & PackMask(UNPACK_PRE)) Deduplicator::Restore(&this->pre);
+                    if(what & PackMask(UNPACK_POST)) Deduplicator::Restore(&this->post);
+                    if(what & PackMask(UNPACK_OH)) Deduplicator::Restore(&this->out_hit);
+                    if(what & PackMask(UNPACK_OH_BYTE)) Deduplicator::Restore(&this->out_hit_byte);
+                    if(what & PackMask(UNPACK_OH_WORD)) Deduplicator::Restore(&this->out_hit_word);
+                    if(what & PackMask(UNPACK_FAULT)) Deduplicator::Restore(&this->fault_keys);
+                    if(what & PackMask(UNPACK_FAULT_KEYDEP)) Deduplicator::Restore(&this->fault_keys_keydep);
+                    if(what & PackMask(UNPACK_FAULT_KEYDEP_BYTE)) Deduplicator::Restore(&this->fault_keys_keydep_byte);
+                    if(what & PackMask(UNPACK_FAULT_KEYDEP_WORD)) Deduplicator::Restore(&this->fault_keys_keydep_word);
+                    if(what & PackMask(UNPACK_FAULT_BYTE)) Deduplicator::Restore(&this->fault_keys_byte);
+                    if(what & PackMask(UNPACK_FAULT_WORD)) Deduplicator::Restore(&this->fault_keys_word);
+                    packed=false;
+                    unpacked_for=what;
+                }
 				static llvm::NoCryptoFA::InstructionMetadata* getNewMD(llvm::Instruction* ptr) {
 					llvm::NoCryptoFA::InstructionMetadata* md;
 					if(NoCryptoFA::known.find(ptr) != NoCryptoFA::known.end()) {
@@ -152,6 +209,8 @@ namespace llvm
                     hasToBeProtected_post = false;
                     CiphertextHeight= 0xffffffff;
                     hasBeenMasked = false;
+                    packed=false;
+                    unpacked_for =~((unsigned int)0);
 
                 }
                 std::string& getAsString(){
@@ -172,6 +231,8 @@ namespace llvm
                 }
 			private:
                 std::string representation;
+                bool packed=false;
+                unsigned int unpacked_for=~((unsigned int)0);
 				void init() {
 					origin = InstructionMetadata::ORIGINAL_PROGRAM;
                     isAKeyOperation = false;
@@ -185,7 +246,7 @@ namespace llvm
 
 		};
 
-	}
+    }
 
 
 	class TaggedData : public llvm::FunctionPass

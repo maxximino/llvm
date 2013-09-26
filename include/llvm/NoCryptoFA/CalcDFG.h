@@ -7,7 +7,7 @@
 #include <list>
 #include <set>
 #include <bitset>
-
+#include <semaphore.h>
 using namespace llvm;
 
 namespace llvm
@@ -77,6 +77,7 @@ namespace llvm
             unsigned int getMSBEverSet();
             unsigned int getMSBEverSet_Fault();
 		private:
+                    std::set<Function*> markedfunctions;
 			// This is the information computed by the analysis.
 			std::map<llvm::Instruction*, std::bitset<MAX_KEYBITS> > instr_bs;
 			std::map<NoCryptoFA::KeyStartInfo, std::bitset<MAX_KEYBITS> > GEPs;
@@ -91,7 +92,7 @@ namespace llvm
             std::multimap<int,Instruction*> candidateVulnerablePointsPT;
             std::set<Instruction*> allKeyMaterial;
             void runBatched(set<Instruction*> initialSet, std::function<bool(Instruction*,long batchn)> func );
-            void runBatched_parallel(set<Instruction*> initialSet, std::function<void(Instruction*,long batchn)> func );
+            void runBatched_parallel(set<Instruction*> initialSet, std::function<void(Instruction*,long batchn,sem_t *ready)> func );
             void calcKeydep(llvm::Instruction* ptr);
             void searchCipherOutPoints(llvm::Instruction* ptr);
             //bool lookForBackwardsKeyPoints(llvm::Instruction* ptr);

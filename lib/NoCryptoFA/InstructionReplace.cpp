@@ -123,6 +123,7 @@ void BuildMetadata(Value* _newInstruction, Instruction* oldInstruction, NoCrypto
 	newMd->hasToBeProtected_pre = false;
 	if(oldInstruction != NULL) {
 		NoCryptoFA::InstructionMetadata* oldMd = NoCryptoFA::known[oldInstruction];
+        oldMd->unpack();
 		newMd->hasMetPlaintext = oldMd->hasMetPlaintext;
 		newMd->isAKeyOperation = oldMd->isAKeyOperation;
 		newMd->isAKeyStart = oldMd->isAKeyStart;
@@ -130,6 +131,8 @@ void BuildMetadata(Value* _newInstruction, Instruction* oldInstruction, NoCrypto
         newMd->keydep = oldMd->keydep;
         newMd->post = oldMd->post;
         newMd->post_own = oldMd->post_own;
+        oldMd->pack();
+        newMd->pack();
 	}
 }
 

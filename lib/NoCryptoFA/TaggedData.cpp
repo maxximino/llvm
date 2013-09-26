@@ -154,6 +154,7 @@ void TaggedData::checkMeta(llvm::Instruction* ptr)
 void TaggedData::getAnalysisUsage(llvm::AnalysisUsage& AU) const
 {
 	// This is an analysis, nothing is modified, so other analysis are preserved.
+    AU.setPreservesCFG();
 	AU.setPreservesAll();
 }
 
@@ -164,7 +165,6 @@ INITIALIZE_PASS_BEGIN(TaggedData,
                       "TaggedData",
                       true,
                       true)
-INITIALIZE_PASS_DEPENDENCY(DominatorTree)
 
 INITIALIZE_PASS_END(TaggedData,
                     "TaggedData",

@@ -106,10 +106,9 @@ class CalcBackwardVisitor : public InstVisitor<CalcBackwardVisitor<MAXBITS,DATA,
 		void visitSRem(BinaryOperator& inst) {calcAsBiggestSum(inst);}
         void visitGetElementPtrInst(GetElementPtrInst& inst) {
             calcAsBiggestSum(inst);
-            NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
-            for(unsigned int i = 0; i < (md->*DATA).size();i++ )
+            for(unsigned int i = 0; i < (usemd->*DATA).size();i++ )
             {
-                if(md->deadBits[i]) (md->*DATA)[i].reset();
+                if(usemd->deadBits[i]) (md->*DATA)[i].reset();
             }
         }
 		void visitCallInst(CallInst& inst) {calcAsBiggestSum(inst);}

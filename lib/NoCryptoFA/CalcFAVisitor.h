@@ -119,11 +119,11 @@ class CalcFAVisitor : public InstVisitor<CalcFAVisitor>
         void visitSRem(BinaryOperator& inst) {calcAsBiggestSum(inst);}
         void visitGetElementPtrInst(GetElementPtrInst& inst) {
             calcAsBiggestSum(inst);
-            NoCryptoFA::InstructionMetadata* md = NoCryptoFA::known[&inst];
             for(unsigned long i = 0; i < md->fault_keys.size();i++ )
             {
-                if(md->deadBits[i]) md->fault_keys[i] = vector<bitset<MAX_KMBITS > >(MAX_OUTBITS,bitset<MAX_KMBITS>(0));
+                if(usemd->deadBits[i]) md->fault_keys[i] = vector<bitset<MAX_KMBITS > >(MAX_OUTBITS,bitset<MAX_KMBITS>(0));
             }
+
         }
         void visitCallInst(CallInst& inst) {calcAsBiggestSum(inst);}
 };
